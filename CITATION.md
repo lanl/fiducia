@@ -7,9 +7,9 @@ acknowledgement:
 
 and that you cite the following paper(s):
 
+```bib
 @article{barnak2020soft,
-  title={Soft x-ray spectrum unfold of K-edge filtered x-ray diode arrays using 
-cubic splines},
+  title={Soft x-ray spectrum unfold of K-edge filtered x-ray diode arrays using cubic splines},
   author={Barnak, DH and Davies, JR and Knauer, JP and Kozlowski, Pawel Marek},
   journal={Review of Scientific Instruments},
   volume={91},
@@ -17,4 +17,6 @@ cubic splines},
   pages={073102},
   year={2020},
   publisher={AIP Publishing LLC}
+  url={https://doi.org/10.1063/5.0002856}
 }
+```
