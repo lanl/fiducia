@@ -7,8 +7,7 @@ Fiducia's Documentation
 ===================================
 
 Fiducia is an open source package for unfolding spectral information from
-filtered diode array diagnostics (such as Dante) using the [cubic splines
-analysis method](https://doi.org/10.1063/5.0002856). This method simply
+filtered diode array diagnostics (such as Dante) using the `cubic splines analysis method <https://doi.org/10.1063/5.0002856>`_ . This method simply
 assumes that the underlying spectrum is smoothly varying, and does not
 impose any other constraints on the shapes of spectrum. See below for
 instructions on how to install Fiducia, and for examples on how to run an
