@@ -11,7 +11,12 @@ spectra, and radiation temperatures. Functionality is described in [Fiducia's on
 
 
 ## Installation
-Installation instructions can be found [here](INSTALL.md).
+[Official releases of Fiducia](https://pypi.org/project/fiducia/) are published to pypi.org and can simply be pip installed like so:
+```
+pip install fiducia
+```
+
+More detailed installation instructions can be found [here](INSTALL.md).
 
 
 ## License
