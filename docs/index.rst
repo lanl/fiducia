@@ -21,6 +21,7 @@ analysis using Fiducia.
    Examples <auto_examples/index>
    Contributing <contributing>
    Citing <citing>
+   License <license>
 
 .. toctree::
    :maxdepth: 1
