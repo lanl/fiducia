@@ -1,7 +1,7 @@
 # fiducia
 
 [![Documentation Status](https://readthedocs.org/projects/fiducia/badge/?version=latest)](https://fiducia.readthedocs.io/en/latest/?badge=latest)
-[![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](./LICENSE.md)
+[![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://fiducia.readthedocs.io/en/latest/license.html)
 
 FIDUCIA (C20073): Filtered Diode Unfolder (using) Cubic-spline Algorithm
 
