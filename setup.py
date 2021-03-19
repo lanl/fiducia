@@ -21,7 +21,7 @@ with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
 
 setup(name='fiducia',
       version='0.2.3',
-      description='Filtered diode array data unfolder using cubic-spline algorithm',
+      description='Filtered Diode Unfolder (using) Cubic-spline Algorithm',
       long_description=long_description,
       long_description_content_type='text/markdown',
       url='https://github.com/lanl/fiducia',
