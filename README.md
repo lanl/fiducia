@@ -1,12 +1,13 @@
 # fiducia
 
 [![Documentation Status](https://readthedocs.org/projects/fiducia/badge/?version=latest)](https://fiducia.readthedocs.io/en/latest/?badge=latest)
-[![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](./LICENSE.md)
+[![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://fiducia.readthedocs.io/en/latest/license.html)
+[![GitHub Actions — CI](https://github.com/lanl/fiducia/workflows/CI/badge.svg)](https://github.com/lanl/fiducia/actions?query=workflow%3ACI+branch%3Amain)
 
 FIDUCIA (C20073): Filtered Diode Unfolder (using) Cubic-spline Algorithm
 
-This is a DANTE signal deconvolver based on the [cubic splines method](https://doi.org/10.1063/5.0002856). 
-Given time-resolved DANTE data, this code can produce time-resolve x-ray 
+This is a diode array signal deconvolver based on the [cubic splines method](https://doi.org/10.1063/5.0002856). 
+Given time-resolved diode data (e.g. Dante), this code can produce time-resolve x-ray 
 spectra, and radiation temperatures. Functionality is described in [Fiducia's online documentation](https://fiducia.readthedocs.io/).
 
 

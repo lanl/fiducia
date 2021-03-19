@@ -20,8 +20,8 @@ with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(name='fiducia',
-      version='0.2.2',
-      description='DANTE data unfolder using cubic-spline algorithm',
+      version='0.2.3',
+      description='Filtered Diode Unfolder (using) Cubic-spline Algorithm',
       long_description=long_description,
       long_description_content_type='text/markdown',
       url='https://github.com/lanl/fiducia',
