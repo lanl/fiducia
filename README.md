@@ -4,6 +4,7 @@
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://fiducia.readthedocs.io/en/latest/license.html)
 [![GitHub Actions — CI](https://github.com/lanl/fiducia/workflows/CI/badge.svg)](https://github.com/lanl/fiducia/actions?query=workflow%3ACI+branch%3Amain)
 [![codecov](https://codecov.io/gh/lanl/fiducia/branch/main/graph/badge.svg)](https://codecov.io/gh/lanl/fiducia)
+[![GitHub Actions — Style linters](https://github.com/lanl/fiducia/workflows/Style%20linters/badge.svg)](https://github.com/lanl/fiducia/actions?query=workflow%3AStyle-linters+branch%3Amain)
 
 FIDUCIA (C20073): Filtered Diode Unfolder (using) Cubic-spline Algorithm
 
