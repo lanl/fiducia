@@ -38,6 +38,7 @@ jobs:
       with:
         name: pytest-results-${{ matrix.python-version }}
         token: ${{ secrets.CODECOV_TOKEN }}
+        if: always()
         files: ./coverage.xml,./coverage1.xml,./coverage2.xml
         directory: ./coverage/reports/
         flags: unittests
@@ -45,8 +46,6 @@ jobs:
         fail_ci_if_error: true
         path_to_write_report: ./coverage/codecov_report.txt
         verbose: true
-#      # Use always() to always run this step to publish test results when there are test failures
-#      #if: ${{ always() }}
     - name: Lint with flake8
       run: |
         pip install flake8
