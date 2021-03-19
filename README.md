@@ -5,8 +5,8 @@
 
 FIDUCIA (C20073): Filtered Diode Unfolder (using) Cubic-spline Algorithm
 
-This is a DANTE signal deconvolver based on the [cubic splines method](https://doi.org/10.1063/5.0002856). 
-Given time-resolved DANTE data, this code can produce time-resolve x-ray 
+This is a diode array signal deconvolver based on the [cubic splines method](https://doi.org/10.1063/5.0002856). 
+Given time-resolved diode data (e.g. Dante), this code can produce time-resolve x-ray 
 spectra, and radiation temperatures. Functionality is described in [Fiducia's online documentation](https://fiducia.readthedocs.io/).
 
 
