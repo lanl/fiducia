@@ -20,6 +20,7 @@ import fiducia.cspline as cspline
 import fiducia.loader as loader
 import scipy.sparse as sparse
 
+
 class Test_splineCoords(object):
     """
     Testing class for the splineCoords and splineCorrdsInv functions
@@ -50,6 +51,7 @@ class Test_splineCoords(object):
         errStr = (f"Spline coordinate inverted value test gives {methodVals} but "
                   f"should be {self.energy1}")
         assert testTrue, errStr
+
 
 class Test_coeffArr(object):
     """
@@ -142,6 +144,7 @@ class Test_chArr(object):
                   f"should be {self.trueChi3.toarray()}")
         assert testTrue, errStr
 
+
 class Test_dToyArr(object):
     """Testing class for the dToyArr function"""
     def setup_class(self):
@@ -161,36 +164,40 @@ class Test_dToyArr(object):
                   f"should be {self.trueDToyArr}")
         assert testTrue, errStr
         
-class Test_responseInterp(object):
-    """
-    Testing class for the responseInterp function.
-    """
-    def setup_class(self):
-        "Initialize parameters for testing"
-        self.energyNorm = 0.2
-        self.energyMin = 10
-        self.energyMax = 80
-        #Have to set path this way in order to work locally on pytest and
-        #on the GitLab pipeline. Not pretty.
-        self.fiduciaPath = os.path.abspath(os.path.dirname(inspect.getfile(fiducia)))
-        self.responseFilePath = os.path.join(self.fiduciaPath, "tests", "example_response.csv")
         
-        self.channels= [2, 3, 4, 5, 6, 7, 8, 9, 12, 13, 14]
-        self.responseFrame = loader.loadResponses(self.channels, self.responseFilePath)
-        self.trueResponsesInterpolated = [[8.19720e-39,0.00000e+00,0.00000e+00,0.00000e+00,2.82800e-38,
-                                           7.03465e-25,2.07858e-09,6.20039e-08,0.00000e+00,0.00000e+00,
-                                           0.00000e+00]]
+# class Test_responseInterp(object):
+#     """
+#     Testing class for the responseInterp function.
+#     """
+#     def setup_class(self):
+#         "Initialize parameters for testing"
+#         self.energyNorm = 0.2
+#         self.energyMin = 10
+#         self.energyMax = 80
+#         #Have to set path this way in order to work locally on pytest and
+#         #on the GitLab pipeline. Not pretty.
+#         self.fiduciaPath = os.path.abspath(os.path.dirname(inspect.getfile(fiducia)))
+#         self.responseFilePath = os.path.join(self.fiduciaPath, "tests", "example_response.csv")
         
-    def test_responseInterp(self):
-        """Testing for expected return value."""
-        methodVals = cspline.responseInterp(self.energyNorm, self.energyMin, 
-                                            self.energyMax, self.responseFrame,
-                                            self.channels)
-        testTrue = np.allclose(methodVals, self.trueResponsesInterpolated, 
-                               rtol=1e-13, atol=0.0)
-        errStr = (f"Response interpolation test gives {methodVals} but "
-                  f"should be {self.trueResponsesInterpolated}")
-        assert testTrue, errStr
+#         self.channels= [2, 3, 4, 5, 6, 7, 8, 9, 12, 13, 14]
+#         self.responseFrame = loader.loadResponses(self.channels, self.responseFilePath)
+#         self.trueResponsesInterpolated = [[8.19720e-39,0.00000e+00,0.00000e+00,0.00000e+00,2.82800e-38,
+#                                            7.03465e-25,2.07858e-09,6.20039e-08,0.00000e+00,0.00000e+00,
+#                                            0.00000e+00]]
+        
+#     def test_responseInterp(self):
+#         """Testing for expected return value."""
+#         methodVals = cspline.responseInterp(self.energyNorm,
+#                                             self.energyMin, 
+#                                             self.energyMax,
+#                                             self.responseFrame,
+#                                             self.channels)
+#         testTrue = np.allclose(methodVals, self.trueResponsesInterpolated, 
+#                                rtol=1e-13, atol=0.0)
+#         errStr = (f"Response interpolation test gives {methodVals} but "
+#                   f"should be {self.trueResponsesInterpolated}")
+#         assert testTrue, errStr
+    
     
 class Test_yChiCoeff(object):
     """
