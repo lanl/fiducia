@@ -474,3 +474,80 @@ def readDanteData(filePath):
                          17:'(unused field)'}
     headerFrame.rename(index=indexNamesReplace, inplace=True)
     return headerFrame, dataFrame
+
+def readDanteDataOld(filePath):
+    r"""
+    Reads Dante .dat file for old format files (no bkg) and returns header
+    info and channel signals as two separate pandas dataframes. Produces 
+    artificial background dataframe of just zeros.
+    
+    Parameters
+    ----------
+    filePath: str
+        Full path to the Dante .dat file.
+    
+    Returns
+    -------
+    headerFrame: pandas.core.frame.DataFrame
+        Header of Dante data file. This typically include information
+        about the various components used in each Dante channel, such
+        as oscilloscopes, XRDs, etc.
+    
+    dataFrame: pandas.core.frame.DataFrame
+        Dante data.
+        
+    Notes
+    -----
+    
+    See also
+    --------
+    
+    Examples
+    --------
+    """
+    # reading the entire dante file
+    dataAndHeaderFrame = pd.read_csv(filePath, sep='\t', header=None)
+    
+    # make background data frame with duplicate header
+    bkg = np.zeros_like(dataAndHeaderFrame)
+    bkgFrame = pd.DataFrame(bkg)
+    headerLen = 17 # old header does not include XRD voltages
+    headerFrame = dataAndHeaderFrame[:][:headerLen]
+    bkgFrame[:][:headerLen] = headerFrame
+    
+    master = pd.concat((dataAndHeaderFrame, bkgFrame), axis = 1)
+    # generating dante dataframe header names
+    headerNames1st = [str(num) for num in np.arange(18) + 1]
+    
+    # take out non-existant background traces
+    headerNames2nd = [str(num) + ' bkg' for num in np.arange(18) + 1]
+    headerName = headerNames1st + headerNames2nd
+    
+    # headerName = headerNames1st
+    # replacing dataframe column header names for more intuitive access
+    master.columns = headerName
+    # splitting into header frame and measurement data frame
+    
+    headerFrame = master[:][:headerLen]
+    dataFrame = master[:][headerLen:]
+    
+    # replacing row names for header frame
+    indexNamesReplace = {0:'Signal Cable',
+                         1:'Attenuator 1',
+                         2:'Attenuator 2',
+                         3:'Attenuator 3',
+                         4:'Attenuator 4',
+                         5:'Jumper Cable',
+                         6:'XRD SN',
+                         7:'Mirror SN',
+                         8:'Filter 1 SN',
+                         9:'Filter 2 SN',
+                         10:'Filter 3 SN',
+                         11:'Fiducial T',
+                         12:'Scope type',
+                         13:'Full scale Hor time',
+                         14:'#Hor Pts',
+                         15:'Full Scale Vert mV',
+                         16:'(unused field)'}
+    headerFrame.rename(index=indexNamesReplace, inplace=True)
+    return headerFrame, dataFrame

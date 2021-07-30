@@ -21,7 +21,7 @@ from scipy.signal import find_peaks
 
 # custom modules
 from fiducia.misc import find_nearest
-from fiducia.loader import readDanteData
+from fiducia.loader import readDanteData, readDanteDataOld
 import fiducia.pltDefaults
 
 
@@ -679,7 +679,7 @@ def polyBkg(time,
             plot=False):
     r"""
     Fit polynomial function to ends of the signal as an estimate of the
-    background signal + hyesteresis. Default is cubic fit.
+    background signal + hysteresis. Default is cubic fit.
     
     Parameters
     ----------
@@ -1254,7 +1254,7 @@ def constructMeasurementFrame(timesFrame, df, channels):
         A dataframe of corrected/calibrated dante signal measurements.
         
     channels: list
-        A list of channels for which to apply analyis.
+        A list of channels for which to apply analysis.
         
     Returns
     -------
@@ -1292,7 +1292,8 @@ def loadCorrected(danteFile,
                   offsetsFile,
                   cut=None,
                   plot=False,
-                  addCh=[]):
+                  addCh=[],
+                  dataFormat = 'new'):
     r"""
     Given a dante data file, an attenuators file, and an offsets file, reads
     the file and applies background correction, attenuation correction, and
@@ -1328,6 +1329,10 @@ def loadCorrected(danteFile,
     addCh: list
         Add channels to analyze. This is used to override which channels
         are listed as on in the header of the data dante data file.
+        
+    dataFormat: str
+        Flag for importing either new or old files. Old files contain no
+        background traces. Defualt is new
     
     Returns
     -------
@@ -1356,7 +1361,10 @@ def loadCorrected(danteFile,
     --------
     """
     # load data
-    hf, df = readDanteData(danteFile)
+    if dataFormat == 'new':
+        hf, df = readDanteData(danteFile)
+    if dataFormat == 'old':
+        hf, df = readDanteDataOld(danteFile)
     # get set of all dante channels with useful data
     onCh = onChannels(hf)
     print(f'Analyzing channels {onCh}')
