@@ -231,7 +231,7 @@ def timesScope(hf):
             print(f"No timespan for channel {key}.")
         # extracting total time spanned by the oscilloscope trace based on the
         # time code. For example, a time code of 208 means 2.0e-8 seconds.
-        else:
+        elif timeCode == '208':
             # assuming decimal point comes after first number, and all but the last
             # number are part of the significand.
             timeSpan = float(timeCode[0] + '.' + timeCode[1:-1] + 'e-' + timeCode[-1])
@@ -243,6 +243,8 @@ def timesScope(hf):
             timeStep = timeSpan / (scopePts - 1)
             # constructing array of times for convience in analysis/plotting
             timesFrame[key] = np.arange(scopePts) * timeStep
+        else:
+            print(f"channel {key} unreadable")
 
     return timesFrame
 
@@ -836,6 +838,7 @@ def signalEdges(timesFrame,
     for ch in channels:
         times = timesFrame[ch]
         signal = df[ch]
+        print(ch)
         # finding peaks which are above the mean of the signal
         peaks, properties = find_peaks(signal,
                                        height=avgMult * np.mean(signal),
