@@ -860,18 +860,18 @@ def signalEdges(timesFrame,
             plt.plot(times, signal)
             plt.plot(times[peaks], signal[peaks], "x")
             plt.vlines(x=times[peaks],
-                       ymin=signal[peaks] - properties["prominences"],
-                       ymax = signal[peaks],
-                       color = "C1")
+                        ymin=signal[peaks] - properties["prominences"],
+                        ymax = signal[peaks],
+                        color = "C1")
             plt.hlines(y=properties["width_heights"],
-                       xmin=times[properties["left_ips"]],
-                       xmax=times[properties["right_ips"]],
-                       color = "C1")
+                        xmin=times[(properties["left_ips"]).astype('int64')],
+                        xmax=times[(properties["right_ips"]).astype('int64')],
+                        color = "C1")
             plt.hlines(y=avgMult * np.mean(signal),
-                       xmin=times[0],
-                       xmax=times[len(signal) - 1],
-                       color = "C2",
-                       linestyles='--')
+                        xmin=times[0],
+                        xmax=times[len(signal) - 1],
+                        color = "C2",
+                        linestyles='--')
             plt.scatter(times[edgesFrame[ch][0]],
                         signal[edgesFrame[ch][0]],
                         color="C3")
@@ -1477,7 +1477,8 @@ def hysteresisCorrect(timesFrame,
                       order=5,
                       prominence=0.2,
                       width=10,
-                      avgMult=1):
+                      avgMult=1,
+                      plot=False):
     r"""
     Corrects for hysteresis by detecting edges of signal containing region
     and fitting a polynomial background to regions that do not belong to 
@@ -1540,7 +1541,7 @@ def hysteresisCorrect(timesFrame,
                           edgesFrame=edgesFrame,
                           channels=channels,
                           order=order,
-                          plot=False)
+                          plot=plot)
     return dfPoly
 
 
