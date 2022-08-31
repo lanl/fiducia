@@ -846,15 +846,20 @@ def signalEdges(timesFrame,
                                        width=width)
         # determining lower and upper bounds of signal region by taking first
         # and last peaks and shifting by distance of peak width
-        width1 = properties["widths"][0]
+        # width1 = properties["widths"][0]
         # width / 2 is kind of like sigma, and then that multiplied by 3 is
         # like 3 sigma away.
-        lowerBnd = peaks[0] - sigmaMult * width1 / 2
-        width2 = properties["widths"][-1]
-        upperBnd = peaks[-1] + sigmaMult * width2 / 2
+        # pick the highest peak
+        pHeights = properties["peak_heights"]
+        highest = np.where(pHeights == max(pHeights))[0]
+        # set the width as the width of the first peak
+        width1 = properties["widths"][highest]
+        # lower and upper bounds are multiples of peak width
+        lowerBnd = peaks[highest] - sigmaMult * width1 / 2
+        upperBnd = peaks[highest] + sigmaMult * width1 / 2
         # saving these edges to the dataframe which is to be returned
-        edgesFrame[ch][0] = int(round(lowerBnd))
-        edgesFrame[ch][1] = int(round(upperBnd))
+        edgesFrame[ch][0] = int(round(lowerBnd[0]))
+        edgesFrame[ch][1] = int(round(upperBnd[0]))
         if plot:
             # plotting
             plt.plot(times, signal)
@@ -1478,6 +1483,7 @@ def hysteresisCorrect(timesFrame,
                       prominence=0.2,
                       width=10,
                       avgMult=1,
+                      sigmaMult = 3,
                       plot=False):
     r"""
     Corrects for hysteresis by detecting edges of signal containing region
@@ -1530,6 +1536,7 @@ def hysteresisCorrect(timesFrame,
     edgesFrame = signalEdges(timesFrame=timesFrame,
                              df=df,
                              channels=channels,
+                             sigmaMult = sigmaMult,
                              plot=False,
                              prominence=prominence,
                              width=width,
@@ -1566,7 +1573,7 @@ def align(timesFrame,
         Dataframe of dante signals. See loadCorrected().
         
     channels: list
-        A list of channels for which to apply analyis.
+        A list of channels for which to apply analysis.
         
     peaksNum: int
         Number of peaks to grab from peakIdxs. This function will grab
@@ -1610,15 +1617,15 @@ def align(timesFrame,
         raise Exception(f"Cannot align to {peakAlignIdx}th peak if there"
                         f" are only {peaksNum} peaks.")
     # finding tallest peaks in the signal
-    peaksFrame = getPeaks(timesFrame=timesFrame,
-                          df=df,
-                          channels=channels,
+    # print(peaksNum, prominence, width, avgMult)
+    peaksFrame = getPeaks(timesFrame, 
+                          df,
+                          channels,
                           peaksNum=peaksNum,
-                          plot=True,
+                          plot=False,
                           prominence=prominence,
                           width=width,
                           avgMult=avgMult)
-    
     # aligning to selected peak
     timesAligned = alignPeaks(timesFrame=timesFrame,
                               df=df,
