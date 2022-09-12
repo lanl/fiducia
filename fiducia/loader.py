@@ -193,7 +193,8 @@ def loadResponses(channels, fileName, solid=True):
     if solid:
         for chan in channels:
             #multiply each element by the corresponding channel solid angle
-            responseFrame.loc[:, chan] *= solidAngles[chan-1]
+            #convert V/GW to V/W for benchmarking against Mathematica Fiducia
+            responseFrame.loc[:, chan] *= solidAngles[chan-1]*1e-9
             #save metadata that we already include solid angle
             responseFrame.solid = True
 

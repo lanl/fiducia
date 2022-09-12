@@ -148,7 +148,8 @@ def yCoeffArr(energyNorm, chLen):
                         [0,1],
                         shape=(chLen, chLen + 1),
                         format='lil')
-    #First and last row elements in y array are different (added by DHB 3/25/19)
+    #First and last row elements in y array are different 
+    #(added by DHB 3/25/19)
     mArr[0,0] = 1 - energyNorm ** 3
     mArr[0,1] = energyNorm ** 3
     mArr[chLen-1,chLen-1] = 1 - energyNorm ** 3
@@ -191,8 +192,10 @@ def dCoeffArr(energyNorm, chLen):
                         [0,1],
                         shape=(chLen, chLen + 1), 
                         format='lil')
-    #First and last row elements in D array are different (added by DHB 3/25/19)
+    #First and last row elements in D array are different
+    #(added by DHB 3/25/19)
     dArr[0,0] = energyNorm - energyNorm ** 3
+    dArr[0,1] = 0
     dArr[chLen-1,chLen-1] = energyNorm - energyNorm ** 2
     dArr[chLen-1,chLen] = energyNorm ** 2 - energyNorm ** 3
     return dArr.tocsc()
@@ -640,27 +643,13 @@ def detectorArr(channels, knots, responseFrame, boundary="y0", npts=1000):
     #detArr = np.sum(integFoldArr, axis=1)
     detArr = integFoldArr.sum(dim="segment")
     detArr.attrs['boundary'] = boundary
-    if boundary == "y0":
-        # extracting column corresponding to y0
-        detArrBoundaryCol = detArr.isel(knot_point=0)
-        detArr = detArr.isel(knot_point=slice(1, None))
-    elif boundary == "yn+1":
-        # extracting column corresponding to y_{n+1}
-        detArrBoundaryCol = detArr.isel(knot_point=-1)
-        detArr = detArr.isel(knot_point=slice(None, -1))
-    else:
-        raise Exception(f"No method found for boundary {boundary}.")
-    return detArr, detArrBoundaryCol
+    return detArr
 
 
 def knotSolve(signals,
               detArr,
-              detArrBoundaryCol,
-              detArrVarianceBoundaryCol,
-              detArrInv,
-              stdDetArrInv,
-              signalsUncertainty=None,
-              yGuess=1e-77,
+              boundary='y0',
+              yGuess=1e-10,
               npts=1000):
     r"""
     Get knot points :math:`y_i` from measured DANTE signals :math:`S_d`.
@@ -674,30 +663,10 @@ def knotSolve(signals,
     detArr : numpy.ndarray
         Matrix representing the spectrally integrated folding of the detector
         response with a cubic spline interpolation of the x-ray spectrum.
-        2D array of channels and knot points of shape (n, n).
-    
-    detArrBoundaryCol : xarray.DataArray
-        Column of cublic spline matrix corresponding to the knots at the 
-        boundary chosen with `boundary`.
-    
-    detArrVarianceBoundaryCol: xarray.DataArray
-        Column of variances in the cublic spline matrix corresponding to the 
-        knots at the boundary chosen with `boundary`.
-        
-    detArrInv : xarray.DataArray
-        Inversion of detArr, with the column corresponding to boundary removed 
-        so detArr is invertible.
-    
-    stdDetArrInv: xarray.DataArray
-        Array of the standard deviation of each element in detArrInv based on
-        variance using the 'responseUncertaintyFrame' propagated with Monte Carlo. 
-
-    signalsUncertainty: xarray.DataArray, optional
-        numpy array of the uncertainty of the DANTE measured signal for each 
-        channel at a particular point in time. The default is None.
+        2D array of channels and knot points of shape (n, n+1).
 
     yGuess: float, optional
-        Guess for position of boundary knot point. Default is 1e-77.
+        Guess for position of boundary knot point. Default is 1e-10.
     
     npts: int, optional
         Number of points used in computing the integral. Default is 1000.
@@ -722,16 +691,30 @@ def knotSolve(signals,
     
     """ 
     #subtract boundary col from signals
+    if boundary == "y0":
+        # extracting column corresponding to y0
+        detArrBoundaryCol = detArr.isel(knot_point=0)
+        detArr = detArr.isel(knot_point=slice(1, None))
+    elif boundary == "yn+1":
+        # extracting column corresponding to y_{n+1}
+        detArrBoundaryCol = detArr.isel(knot_point=-1)
+        detArr = detArr.isel(knot_point=slice(None, -1))
+    else:
+        raise Exception(f"No method found for boundary {boundary}.")
+        
     signalsy0 = signals - yGuess * detArrBoundaryCol
-    signalsy0Variance = signalsUncertainty**2  + yGuess**2 * detArrVarianceBoundaryCol
-    signalsy0Uncertainty = np.sqrt(signalsy0Variance)
+    detArrInv = xr.DataArray(np.linalg.inv(detArr), 
+                             dims=['channel', 'knot_point'], 
+                             attrs={'boundary':boundary})  
+    # signalsy0Variance = signalsUncertainty**2  + yGuess**2 * detArrVarianceBoundaryCol
+    # signalsy0Uncertainty = np.sqrt(signalsy0Variance)
     # applying inverted array to signals to recover knot points
     #huge difference between xarray.dot and np.dot. See issue in Gitlab
     knotsY = np.dot(detArrInv, signalsy0)
     #knotsYother = detArrInv.dot(signalsy0, {subscripts:'i,i'})
     #print("knot diff", knotsYother-knotsY)
-    knotsYVariance = dotVariance(detArrInv, signalsy0, stdDetArrInv, signalsy0Uncertainty)
-    return knotsY, knotsYVariance
+    # knotsYVariance = dotVariance(detArrInv, signalsy0, stdDetArrInv, signalsy0Uncertainty)
+    return knotsY
 
 
 def reconstructSpectrum(chLen,
