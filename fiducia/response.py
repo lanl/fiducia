@@ -21,7 +21,7 @@ __all__ = ["knotFind"]
 def knotFind(channels,
              responseFrame,
              forceKnot=np.array([]),
-             knotBoundary=0,
+             knotBoundary=1,
              boundary='y0'):
     r"""Find knot points.
     
@@ -102,4 +102,5 @@ def knotFind(channels,
         knotsAppend = np.append(knots, [knotBoundary])
     else:
         raise Exception(f"No method found for boundary {boundary}.")
+    #the initial energy point should be 1 not 0 (added by DHB 9/12/22)
     return knotsAppend

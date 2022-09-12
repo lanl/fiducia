@@ -509,7 +509,7 @@ def fancyTrapz2(energyNorms, yChis, segments, responseFrame, channels):
 #        print(f"Calculating for channel {channels[channelIdx]}.")
         for segmentNum, segment in enumerate(segments):
             energyMin, energyMax = segment
-#            print(f"Calculating for segment {segments[segmentNum]}.")
+            # print(f"Calculating for segment {segments[segmentNum]}.")
             # loop over knot points
             for knotNum in np.arange(integArr['knot_point'].size):
                 # multiplication of response by spline matrix
