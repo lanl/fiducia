@@ -157,7 +157,8 @@ def loadResponses(channels, fileName, solid=True):
         functions.
     
     solid: Bool, optional
-        Includes solid angle in response function value if true. The default is true.
+        Includes solid angle in response function value if true. The default
+        is True.
         
     Returns
     -------
@@ -185,8 +186,8 @@ def loadResponses(channels, fileName, solid=True):
     responseFrame = cleanedFrame[colFilter].copy()
     # convert energy column from strings to floats (if necessary)
     if type(responseFrame['Energy(eV)'][0]) == str:
-        energyFloats = responseFrame['Energy(eV)'].str.replace(',', '').astype(float)
-        responseFrame.loc[:,'Energy(eV)'] = energyFloats
+        energyFloats = responseFrame['Energy(eV)'].str.replace(',', '')
+        responseFrame.loc[:,'Energy(eV)'] = energyFloats.astype(float)
     else:
         energyFloats = responseFrame['Energy(eV)'].astype(float)
         responseFrame.loc[:,'Energy(eV)'] = energyFloats
@@ -212,8 +213,8 @@ def loadResponseUncertainty(responseFrame, fileName):
         DataFrame to base the respones uncertainty frame on. 
         
     fileName: str
-        Full path and filename of .csv file containing DANTE response uncertainty
-        percentages functions.
+        Full path and filename of .csv file containing DANTE response
+        uncertainty percentages functions.
 
     Returns
     -------
@@ -235,11 +236,11 @@ def loadResponseUncertainty(responseFrame, fileName):
     channelUncertaintyFrame = pd.read_csv(fileName)
     #clean headers
     cleanedFrame = cleanupHeader(channelUncertaintyFrame)
-    # filtering for columns we care about
+    #filtering for columns we care about
     channels = list(responseFrame.columns.values)
     channels.remove('Energy(eV)')
     responseUncertaintyFrame = responseFrame.copy()
-    #go through each column and fill each element with corresponding uncertainty
+    #fill each column with corresponding uncertainty
     for chan in channels:
         #multiply each responseFrame element by the percent uncertainty
         responseUncertaintyFrame.loc[:, chan] *= cleanedFrame.loc[0, chan]/100
@@ -249,8 +250,9 @@ def loadResponseUncertainty(responseFrame, fileName):
 def readDanProcessed(channels, directory):
     r"""
     Loads DANTE measurement data from files given the channels and path to the
-    directory containing the reduced and aligned DANTE data. Returns a dataframe
-    with the data.
+    directory containing the reduced and aligned DANTE data. Returns a
+    dataframe with the data.
+    
     Note that this is *not* for raw data. It is for reading DANTE signals
     that have already been processed by Dan Barnak's scripts.
     
