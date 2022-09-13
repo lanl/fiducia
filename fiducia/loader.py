@@ -128,7 +128,8 @@ def cleanupHeader(dataFrame):
     # stripping whitespace from header names
     colNames = dataFrame.columns
     colNamesStripped = [header.strip() for header in colNames]
-    renameStripDict = {colName: colNamesStripped[idx] for idx, colName in enumerate(colNames)}
+    renameStripDict = {colName: colNamesStripped[idx]
+                       for idx, colName in enumerate(colNames)}
     df1 = dataFrame.rename(columns=renameStripDict)
     # renaming channel headers from e.g. Ch2 to just 2
     allChannels = np.arange(18) + 1
@@ -375,7 +376,13 @@ def signalsAtTime(time,
     return signals
 
 
-def signalInt(channels, timesFrame, df, tStart, tEnd, npts=1000, method = 'interp'):
+def signalInt(channels,
+              timesFrame,
+              df, 
+              tStart, 
+              tEnd, 
+              npts=1000, 
+              method = 'interp'):
     r"""
     Get time-integrated Dante signals for a specified time interval. Used in
     getting time-integrated spectrum from the unfold.
