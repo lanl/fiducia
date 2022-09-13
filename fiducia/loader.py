@@ -303,7 +303,8 @@ def readDanProcessed(channels, directory):
 
 
 def signalsAtTime(time,
-                  measurementFrame,
+                  timesFrame,
+                  df,
                   channels,
                   plot=False,
                   method="interp"):
@@ -319,9 +320,14 @@ def signalsAtTime(time,
     time: float
         Time for which we want DANTE signals (in ns).
         
-    measurementFrame: pandas.core.frame.DataFrame
-        Pandas dataframe containing DANTE measurement data. See
-        readDanteData() and readDanProcessed().
+    timesFrame: pandas.core.frame.DataFrame
+        Dataframe containing time axis corresponding to dante signals in
+        df dataframe. See timesScope() and bkgCorrect().
+        
+    df: pandas.core.frame.DataFrame
+        Dante dataframe with background corrected values and scaled
+        to units of volts. See readDanteData(), bkgCorrect() and
+        voltageScale().
         
     plot: Bool
         When True, plots DANTE signals vs channel index at a particular time.
@@ -349,13 +355,13 @@ def signalsAtTime(time,
     signals = np.zeros(chLen)
     for idx, channel in enumerate(channels):
         if method == "nearest":
-            timeIdx, _ = find_nearest(array=measurementFrame['Time' + str(channel)],
-                                      value=time)
-            signals[idx] = measurementFrame['Signal' + str(channel)][timeIdx]
+            timeIdx, _ = find_nearest(array=timesFrame[channel],
+                                      value=time*1e-9)
+            signals[idx] = df[channel][timeIdx]
         elif method == "interp":
-            signals[idx] = np.interp(x=time,
-                                     xp=measurementFrame['Time' + str(channel)],
-                                     fp=measurementFrame['Signal' + str(channel)])
+            signals[idx] = np.interp(x=time*1e-9,
+                                     xp=timesFrame[channel],
+                                     fp=df[channel])
         else:
             raise Exception(f"Method {method} not found!")
         
@@ -369,26 +375,40 @@ def signalsAtTime(time,
     return signals
 
 
-def signalInt(channels, measurementFrame, tStart, tEnd):
+def signalInt(channels, timesFrame, df, tStart, tEnd, npts=1000, method = 'interp'):
     r"""
     Get time-integrated Dante signals for a specified time interval. Used in
     getting time-integrated spectrum from the unfold.
     
     Parameters
     ----------
-    measurementFrame: pandas.core.frame.DataFrame
-        Pandas dataframe containing DANTE measurement data. See
-        loadDanteData().
+    timesFrame: pandas.core.frame.DataFrame
+        Dataframe containing time axis corresponding to dante signals in
+        df dataframe. See timesScope() and bkgCorrect().
+        
+    df: pandas.core.frame.DataFrame
+        Dante dataframe with background corrected values and scaled
+        to units of volts. See readDanteData(), bkgCorrect() and
+        voltageScale().
+        
     tStart: float
-        Lower bound for time integration.
+        Lower bound for time integration (in ns).
         
     tEnd: float
-        Upper bound for time integration
+        Upper bound for time integration (in ns).
+        
+    npts: int
+        Number of points used in computing the integral. The default is 1000
+        
+    method: str
+        Either 'nearest' or 'interp'. 'nearest' finds the nearest point in the
+        DANTE signal to the given time. 'interp' returns an interpolated
+        signal value for the given time. Default is 'interp'.
     
     Returns
     -------
     signalInt: numpy.ndarray
-        Time integrated Dante signals for each channel.
+        Time integrated Dante signals for each channel (in V*s).
     
     Notes
     -----
@@ -404,12 +424,23 @@ def signalInt(channels, measurementFrame, tStart, tEnd):
     chLen = len(channels)
     signalInt = np.zeros(chLen)
     for idx, channel in enumerate(channels):
-        timeseries = measurementFrame['Time' + str(channel)]
-        chanseries = measurementFrame['Signal' + str(channel)]
-        timeIdx1, _ = find_nearest(array=timeseries, value=tStart)
-        timeIdx2, _ = find_nearest(array=timeseries, value=tEnd)
-        signalInt[idx] = integrate.simps(y=chanseries[timeIdx1:timeIdx2],
-                                         x=timeseries[timeIdx1:timeIdx2])
+        timeseries = timesFrame[channel]*1
+        chanseries = df[channel]
+        if method == 'nearest':
+            timeIdx1, _ = find_nearest(array=timeseries, value=tStart*1e-9)
+            timeIdx2, _ = find_nearest(array=timeseries, value=tEnd*1e-9)
+            print(timeIdx1, timeIdx2)
+            signalInt[idx] = integrate.simps(y=chanseries[timeIdx1:timeIdx2],
+                                             x=timeseries[timeIdx1:timeIdx2])
+        elif method == 'interp':
+            interpTime = np.linspace(tStart*1e-9, tEnd*1e-9, npts)
+            signalInterp = np.interp(interpTime, timeseries, chanseries)
+            signalInt[idx] = integrate.simps(y=signalInterp,
+                                             x=interpTime)
+        else:
+            raise Exception(f"Method {method} not found!")
+                
+        
     return signalInt
 
 
