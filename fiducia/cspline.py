@@ -706,21 +706,14 @@ def knotSolve(signals,
     detArrInv = xr.DataArray(np.linalg.inv(detArr), 
                              dims=['channel', 'knot_point'], 
                              attrs={'boundary':boundary})  
-    # signalsy0Variance = signalsUncertainty**2  + yGuess**2 * detArrVarianceBoundaryCol
-    # signalsy0Uncertainty = np.sqrt(signalsy0Variance)
-    # applying inverted array to signals to recover knot points
     #huge difference between xarray.dot and np.dot. See issue in Gitlab
     knotsY = np.dot(detArrInv, signalsy0)
-    #knotsYother = detArrInv.dot(signalsy0, {subscripts:'i,i'})
-    #print("knot diff", knotsYother-knotsY)
-    # knotsYVariance = dotVariance(detArrInv, signalsy0, stdDetArrInv, signalsy0Uncertainty)
+    knotsY = np.insert(knotsY, 0, yGuess)
     return knotsY
 
 
-def reconstructSpectrum(chLen,
-                        knots,
+def reconstructSpectrum(knots,
                         knotsY,
-                        knotsYUncertainty=None,
                         npts=1000,
                         plot=False):
     r"""
@@ -738,10 +731,6 @@ def reconstructSpectrum(chLen,
     knotsY: numpy.ndarray
         Array of knot point intensity values with yGuess appended.
         See knotSolve() and analyzeSpectrum().
-
-    knotsYUncertainty: numpy.ndarray
-        Array of knot point intensity uncertainty values with yGuess appended.
-        See knotSolve() and analyzeSpectrum(). The default is None.
     
     npts: int
         Number of points used in computing the integral. The default is 1000.
@@ -770,10 +759,7 @@ def reconstructSpectrum(chLen,
     --------
     
     """
-    #check for no uncertainty provided.
-    if knotsYUncertainty is None:
-        #give them uncertainty of 0
-        knotsYUncertainty = np.zeros(knotsY.shape)
+    chLen = len(knots) - 1
     # initialize normalized energies array
     energyNorms = np.linspace(0, 1, num=npts)
     # producing segments from knots
@@ -783,20 +769,20 @@ def reconstructSpectrum(chLen,
     yChis = yChiCoeffArrEnergies(energyNorms, chLen, dToY)
     #set a constant simple uncertainty for the yChis.
     #TOOD replace with something physical
-    yChisUncertainty = np.zeros(yChis.shape)
+    # yChisUncertainty = np.zeros(yChis.shape)
     # recovering the spectral values
     spectrum = np.dot(yChis, knotsY)
-    spectrumVariance = dotVariance(yChis,
-                                   knotsY,
-                                   yChisUncertainty,
-                                   knotsYUncertainty)
+    # spectrumVariance = dotVariance(yChis,
+    #                                knotsY,
+    #                                yChisUncertainty,
+    #                                knotsYUncertainty)
     # print(spectrumVariance)
     
     # initialize arrays for holding photon energies and corresponding
     # intensities of stitched spectrum.
     photonEnergies = np.array([])
     intensities = np.array([])
-    intensitiesVariance = np.array([])
+    # intensitiesVariance = np.array([])
     # loop over segments to reconstruct spectrum
     for segNum, segment in enumerate(segments):
         energyMin, energyMax = segment
@@ -806,8 +792,8 @@ def reconstructSpectrum(chLen,
         # last element overlaps the first element of the next segment.
         photonEnergies = np.append(photonEnergies, energyRegs[:-1])
         intensities = np.append(intensities, spectrum[:-1, segNum])
-        intensitiesVariance = np.append(intensitiesVariance,
-                                        spectrumVariance[:-1, segNum])
+        # intensitiesVariance = np.append(intensitiesVariance,
+        #                                 spectrumVariance[:-1, segNum])
         if plot:
             plt.plot(energyRegs, spectrum[:, segNum])
             
@@ -816,4 +802,5 @@ def reconstructSpectrum(chLen,
         plt.xlabel('Photon Energy (eV)')
         plt.title('Spectrum from cubic spline knots')
         plt.show()
-    return photonEnergies, intensities, intensitiesVariance
+    # return photonEnergies, intensities, intensitiesVariance
+    return photonEnergies, intensities
