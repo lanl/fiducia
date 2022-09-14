@@ -320,7 +320,8 @@ def responseInterp(energyNorm, energyMin, energyMax, responseFrame, channels):
         normalizing.
         
     responseFrame: pandas.core.frame.DataFrame
-        DANTE channel responses as a function of photon energy (not normalized).
+        DANTE channel responses as a function of photon energy (not 
+        normalized).
 
     channels: numpy.ndarray
         numpy array of DANTE channel numbers.
@@ -804,3 +805,58 @@ def reconstructSpectrum(knots,
         plt.show()
     # return photonEnergies, intensities, intensitiesVariance
     return photonEnergies, intensities
+
+def checkFidelity(signals, 
+                  channels,
+                  photonEnergies, 
+                  intensities, 
+                  responseFrame, 
+                  plot=False):
+    r"""
+    Integrate constructed spectrum with the response functions to check if the
+    recovered cubic spline is self-consistent with the input Dante signals
+
+    Parameters
+    ----------
+    signals : numpy.ndarray
+        Dante signals for each channel at a particular time step.
+        
+    channels: numpy.ndarray
+        Array of DANTE channel numbers. 
+        
+    photonEnergies: numpy.ndarray
+        Photon energy axis of unfolded spectrum.
+        
+    intensities: numpy.ndarray
+        Spectral intensity axis of unfolded spectrum.
+        
+    responseFrame: pandas.core.frame.DataFrame
+        DANTE channel responses as a function of photon energy (not 
+        normalized).
+        
+    plot: Bool
+        Flag for plotting unfolded spectrum. The default is False.
+
+    Returns
+    -------
+    fidelity : numpy.ndarray
+        The recalculated voltage values from convolving the cubic spline
+        solution with the Dante response functions.
+
+    """
+    from scipy import integrate
+    responseEnergy = responseFrame["Energy(eV)"]
+    fidelity = np.zeros(len(channels))
+    for idx, ch in enumerate(channels):
+        chanResponse = responseFrame[ch]
+        responseInterp = np.interp(photonEnergies, responseEnergy, chanResponse)
+        convolve = intensities*responseInterp
+        fidelity[idx] = integrate.simps(y=convolve, x=photonEnergies)
+    if plot:
+        plt.plot(channels, signals)
+        plt.plot(channels, fidelity)
+        plt.ylabel('Spectrum (GW/sr/eV)')
+        plt.xlabel('Photon Energy (eV)')
+        plt.title('Spectrum from cubic spline knots')
+        plt.show()
+    return fidelity
