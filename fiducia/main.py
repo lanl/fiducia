@@ -4,7 +4,7 @@
 """
 Created on Fri Jan 25 12:22:01 2019
 
-FIDUCIA: Filtered Diode Unfolder (using) Cubic Spline Algorithm
+FIDUCIA: Filtered Diode Unfolder (using) Cubic Spline Interpolation Algorithm
 
 DANTE spectrum deconvolver based on cubic splines method [1]. Translated
 from Dan Barnak's Mathematica code.
@@ -38,7 +38,7 @@ https://doi.org/10.1063/1.1147713
 Useful description of cubic spline matrix representation
 [3] http://mathworld.wolfram.com/CubicSpline.html
 
-Paper comparing cubic splines unfolds to other methods
+Paper comparing cubic spline unfolds to other methods
 [4] D. H. Barnak, J. R. Davies, J. P. Knauer, and P. M. Kozlowski. Soft
 x-ray spectrum unfold of K-edge filtered x-ray diode arrays using
 cubic splines. Submitted to Review of Scientific Instruments in 2020.
@@ -232,17 +232,13 @@ def inferPower(energies, spectra, spectraUncertainty=None):
 def analyzeSpectrum(channels,
                     knots,
                     detArr,
-                    detArrBoundaryCol,
-                    detArrVarianceBoundaryCol,
-                    detArrInv,
-                    stdDetArrInv,
-                    measurementFrame,
+                    timesFrame,
+                    df,
                     time,
-                    signalsUncertainty = None,
-                    yGuess=0,
+                    yGuess=1,
                     boundary="y0",
-                    nPtsIntegral=100,
-                    nPtsSpectrum=100,
+                    nPtsIntegral=1000,
+                    nPtsSpectrum=1000,
                     plotSignal=False,
                     plotKnots=False,
                     plotSpectrum=True):
@@ -267,25 +263,15 @@ def analyzeSpectrum(channels,
         Matrix representing the spectrally integrated folding of the detector
         response with a cubic spline interpolation of the x-ray spectrum.
         2D array of channels and knot points of shape (n, n).
- 
-    detArrBoundaryCol : xarray.DataArray
-        Column of cublic spline matrix corresponding to the knots at the boundary
-        chosen with `boundary`.
- 
-    detArrVarianceBoundaryCol: xarray.DataArray
-        Column of variances in the cublic spline matrix corresponding to the 
-        knots at the boundary chosen with `boundary`.   
- 
-    detArrInv : xarray.DataArray
-        Inversion of detArr, with the column corresponding to boundary removed so detArr is invertible.
-   
-    stdDetArrInv : xarray.DataArray
-        Array of the standard deviation of each element in detArrInv based on variance
-        using the `responseUncertaintyFrame` propagated with Monte Carlo. 
     
-    measurementFrame: pandas.core.frame.DataFrame
-        Pandas dataframe containing DANTE measurement data. See
-        readDanteData() and readDanProcessed().
+    timesFrame: pandas.core.frame.DataFrame
+        Dataframe containing time axis corresponding to dante signals in
+        df dataframe. See timesScope() and bkgCorrect().
+        
+    df: pandas.core.frame.DataFrame
+        Dante dataframe with background corrected values and scaled
+        to units of volts. See readDanteData(), bkgCorrect() and
+        voltageScale().
         
     time: float
         Time for which we want DANTE signals (in ns).
@@ -348,79 +334,77 @@ def analyzeSpectrum(channels,
     --------
     """
     # Select a particular time step for generating x-ray spectrum from DANTE
-    signals = signalsAtTime(time=time,
-                            measurementFrame=measurementFrame,
-                            channels=channels,
+    signals = signalsAtTime(time,
+                            timesFrame,
+                            df,
+                            channels,
                             plot=plotSignal,
                             method="interp")
     # solve knots and plot
     # if signalsUncertainty is None:
     #     signalsUncertainty = np.ones(signals.shape)
         
-    knotsY, knotsYVariance = knotSolve(signals,
-                                       detArr, detArrBoundaryCol,
-                                       detArrVarianceBoundaryCol,
-                                       detArrInv, stdDetArrInv,
-                                       signalsUncertainty,
-                                       yGuess=yGuess,
-                                       npts=nPtsIntegral)
+    knotsY = knotSolve(signals,
+                       detArr,
+                       boundary=boundary,
+                       yGuess=yGuess,
+                       npts=nPtsIntegral)
     #Root the variance to get the uncertainty (sigma)
-    knotsYUncertainty = np.sqrt(knotsYVariance)
+    # knotsYUncertainty = np.sqrt(knotsYVariance)
     
     # prepending y0 guess to form full array of y knot values equal in
     # length to knot energy values
-    if boundary == "y0":
-        knotsYAll = np.append([yGuess], knotsY)
-        knotsYUncertaintyAll = np.append([yGuess], knotsYUncertainty)
+    # this is now done natively in knotSolve
+    # if boundary == "y0":
+    #     knotsYAll = np.append([yGuess], knotsY)
+    #     # knotsYUncertaintyAll = np.append([yGuess], knotsYUncertainty)
 
-    elif boundary == "yn+1":
-        knotsYAll = np.append(knotsY, [yGuess])
-        knotsYUncertaintyAll = np.append(knotsYUncertainty, [yGuess])
-    else:
-        raise Exception(f"No method found for boundary {boundary}.")
+    # elif boundary == "yn+1":
+    #     knotsYAll = np.append(knotsY, [yGuess])
+    #     # knotsYUncertaintyAll = np.append(knotsYUncertainty, [yGuess])
+    # else:
+    #     raise Exception(f"No method found for boundary {boundary}.")
     
     # making simple plot at this intermediate step to get rough idea
     # of the shape of the spectrum
     if plotKnots:
-            plt.plot(knots, knotsYAll)
+            plt.plot(knots, knotsY)
             plt.xlabel("Energy (eV)")
             plt.ylabel("X-ray spectrum")
             plt.title("cubic spline knots")
             plt.show()
     
     # reconstruct spectrum using inferred knot points
-    chLen = len(channels)
-    photonEnergies, intensities, intensitiesVariance = reconstructSpectrum(chLen,
-                                                                           knots,
-                                                                           knotsYAll,
-                                                                           knotsYUncertaintyAll,
-                                                                           nPtsSpectrum,
-                                                                           plot=plotSpectrum)
-    photonEnergiesPlus, intensitiesPlus, _ = reconstructSpectrum(chLen,
-                                                                 knots,
-                                                                 knotsYAll+knotsYUncertaintyAll,
-                                                                 knotsYUncertaintyAll,
-                                                                 nPtsSpectrum,
-                                                                 plot=False)
-    photonEnergiesMinus, intensitiesMinus, _ = reconstructSpectrum(chLen,
-                                                                   knots,
-                                                                   knotsYAll-knotsYUncertaintyAll,
-                                                                   knotsYUncertaintyAll,
-                                                                   nPtsSpectrum,
-                                                                   plot=False)
+    # chLen = len(channels)
+    photonEnergies, intensities = reconstructSpectrum(knots,
+                                                      knotsY,
+                                                      nPtsSpectrum,
+                                                      plot=plotSpectrum)
+    # photonEnergiesPlus, intensitiesPlus, _ = reconstructSpectrum(chLen,
+    #                                                              knots,
+    #                                                              knotsYAll+knotsYUncertaintyAll,
+    #                                                              knotsYUncertaintyAll,
+    #                                                              nPtsSpectrum,
+    #                                                              plot=False)
+    # photonEnergiesMinus, intensitiesMinus, _ = reconstructSpectrum(chLen,
+    #                                                                knots,
+    #                                                                knotsYAll-knotsYUncertaintyAll,
+    #                                                                knotsYUncertaintyAll,
+    #                                                                nPtsSpectrum,
+    #                                                                plot=False)
     #subtract to just get the delta from intensities. plot_line_shaded just wants the difference
-    intensitiesPosDiff = intensitiesPlus-intensities
-    intensitiesNegDiff = intensities - intensitiesMinus
-    if plotSpectrum:
-        fiducia.pltDefaults.plot_line_shaded(photonEnergies, 
-                                             intensities, 
-                                             intensitiesPosDiff, 
-                                             intensitiesNegDiff,)
-        plt.xlabel("Photon Energy (eV)")
-        plt.ylabel("Spectrum (GW/sr/eV)")
-        plt.title("Spectra with error bars")
-        plt.show()    
-    return knotsYAll, knotsYVariance, photonEnergies, intensities, intensitiesVariance
+    # intensitiesPosDiff = intensitiesPlus-intensities
+    # intensitiesNegDiff = intensities - intensitiesMinus
+    # if plotSpectrum:
+    #     fiducia.pltDefaults.plot_line_shaded(photonEnergies, 
+    #                                          intensities, 
+    #                                          intensitiesPosDiff, 
+    #                                          intensitiesNegDiff,)
+        # plt.xlabel("Photon Energy (eV)")
+        # plt.ylabel("Spectrum (GW/sr/eV)")
+        # plt.title("Spectra with error bars")
+        # plt.show()    
+    return knotsY, photonEnergies, intensities
 
 
 def analyzeStreak(channels,
