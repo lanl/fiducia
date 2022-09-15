@@ -1190,7 +1190,7 @@ def alignPeaks(timesFrame,
         peaksFrame, etc.
     
     referenceTime: float
-        Time in s to which align peaks. Default is 1e-9 s or 1 ns.
+        Time in s to which to align peaks. Default is 1e-9 s or 1 ns.
         
     plot: bool
         Flag for plotting aligned dante signals. Default is False.
@@ -1212,7 +1212,7 @@ def alignPeaks(timesFrame,
     --------
     """
     peakAlignIdx = 0 # 0 is first peak, 1 is 2nd peak, etc.
-    referenceTime = 1e-9 # set peaks to occur at 1 ns
+    # referenceTime = 1e-9 # set peaks to occur at 1 ns
     timesAligned = pd.DataFrame().reindex_like(timesFrame)
     for ch in channels:
         time = timesFrame[ch]
@@ -1584,7 +1584,7 @@ def align(timesFrame,
         peaksFrame, etc.
         
     referenceTime: float
-        Time in s to which align peaks. Default is 1e-9 s or 1 ns.
+        Time in s to which to align peaks. Default is 1e-9 s or 1 ns.
         
     prominence: float
         Prominence threshold for identifying peaks in scipy's find_peaks().
