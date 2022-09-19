@@ -408,22 +408,18 @@ def analyzeSpectrum(channels,
 
 
 def analyzeStreak(channels,
-                  responseFrame,
                   knots,
                   detArr,
-                  detArrBoundaryCol,
-                  detArrVarianceBoundaryCol,
-                  detArrInv, 
-                  stdDetArrInv,
-                  measurementFrame,
+                  timesFrame,
+                  df,
                   timeStart,
                   timeStop,
                   timeStep,
                   signalsUncertainty=None,
                   yGuess=0,
                   boundary="y0",
-                  nPtsIntegral=100,
-                  nPtsSpectrum=100):
+                  nPtsIntegral=1000,
+                  nPtsSpectrum=1000):
     r"""
     Given the response function file and the DANTE measurement data file,
     run cubic spline analysis to reconstruct spectrum for a given time.
@@ -432,37 +428,23 @@ def analyzeStreak(channels,
     ----------
     channels: list, numpy.ndarray
         List or array of relevant DANTE channel numbers.
-    
-    responseFrame: pandas.core.frame.DataFrame
-        Pandas dataFrame containing response functions for each DANTE
-        channel. See loadResponses().
         
     knots: list, numpy.ndarray
         List or array of knot point photon energy value. See knotFind().
-    
+        
     detArr : xarray.DataArray
         Matrix representing the spectrally integrated folding of the detector
         response with a cubic spline interpolation of the x-ray spectrum.
         2D array of channels and knot points of shape (n, n).
- 
-    detArrBoundaryCol : xarray.DataArray
-        Column of cublic spline matrix corresponding to the knots at the boundary
-        chosen with `boundary`.
- 
-    detArrVarianceBoundaryCol: xarray.DataArray
-        Column of variances in the cublic spline matrix corresponding to the 
-        knots at the boundary chosen with `boundary`.   
         
-    detArrInv : xarray.DataArray
-        Inversion of detArr, with the column corresponding to boundary removed so detArr is invertible.
-   
-    stdDetArrInv : xarray.DataArray
-        Array of the standard deviation of each element in detArrInv based on variance
-        using the `responseUncertaintyFrame` propagated with Monte Carlo. 
-    
-    measurementFrame: pandas.core.frame.DataFrame
-        Pandas dataframe containing DANTE measurement data. See
-        :func:`loader.readDanteData` and :func:`readDanProcessed`.
+    timesFrame: pandas.core.frame.DataFrame
+        Dataframe containing time axis corresponding to dante signals in
+        df dataframe. See timesScope() and bkgCorrect().
+        
+    df: pandas.core.frame.DataFrame
+        Dante dataframe with background corrected values and scaled
+        to units of volts. See readDanteData(), bkgCorrect() and
+        voltageScale().
         
     timeStart: float
         Start time for producing temporally streaked DANTE spectra (in ns).
@@ -525,36 +507,34 @@ def analyzeStreak(channels,
     energies = np.zeros((spectralPts, timesLen))
     spectra = np.zeros((spectralPts, timesLen))
     #TODO implement spectraVariance once DotVariance works on N-D arrays
-    spectraVariance = np.zeros((spectralPts, timesLen))
+    # spectraVariance = np.zeros((spectralPts, timesLen))
     
     for idt, time in enumerate(times):
         # process the spectrum for the given time
         results = analyzeSpectrum(channels,
                                   knots,
-                                  detArr, 
-                                  detArrBoundaryCol,
-                                  detArrVarianceBoundaryCol,
-                                  detArrInv, 
-                                  stdDetArrInv,
-                                  measurementFrame,
+                                  detArr,
+                                  timesFrame,
+                                  df,
                                   time,
-                                  signalsUncertainty=signalsUncertainty,
-                                  yGuess=yGuess,
-                                  boundary=boundary,
-                                  nPtsIntegral=100,
-                                  nPtsSpectrum=100,
+                                  yGuess=1,
+                                  boundary="y0",
+                                  nPtsIntegral=nPtsIntegral,
+                                  nPtsSpectrum=nPtsSpectrum,
+                                  plotSignal=False,
                                   plotKnots=False,
-                                  plotSpectrum=False)
-        knotsYAll, knotsYVariance, photonEnergies, intensities, intensitiesVariance = results
+                                  plotSpectrum=True)
+        knotsYAll, photonEnergies, intensities = results
         # including unfolding spectrum for time step into array of spectra
         # for all time steps
         energies[:, idt] = photonEnergies
         spectra[:, idt] = intensities
-        spectraVariance[:, idt] = intensitiesVariance
+        # spectraVariance[:, idt] = intensitiesVariance
         print(f"Completed time step {time} ns.")    
     # plotting streaked spectrum
     plotStreak(times, energies, spectra)
-    return times, energies, spectra, spectraVariance
+    # return times, energies, spectra, spectraVariance
+    return times, energies, spectra
 
 
 def feelingLucky(dataFile,
