@@ -359,10 +359,10 @@ def signalsAtTime(time,
     for idx, channel in enumerate(channels):
         if method == "nearest":
             timeIdx, _ = find_nearest(array=timesFrame[channel],
-                                      value=time*1e-9)
+                                      value=time)
             signals[idx] = df[channel][timeIdx]
         elif method == "interp":
-            signals[idx] = np.interp(x=time*1e-9,
+            signals[idx] = np.interp(x=time,
                                      xp=timesFrame[channel],
                                      fp=df[channel])
         else:

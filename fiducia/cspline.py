@@ -12,9 +12,11 @@ import scipy.sparse as sparse
 from scipy import integrate
 import matplotlib.pyplot as plt
 import xarray as xr
+import pandas as pd
 # custom modules
 import fiducia.pltDefaults
 from fiducia.stats import dotVariance
+from fiducia.loader import signalsAtTime
 
 # listing all functions declared in this file so that sphinx-automodapi
 # correctly documents them and doesn't document imported functions.
@@ -808,8 +810,8 @@ def reconstructSpectrum(knots,
 
 def checkFidelity(signals, 
                   channels,
-                  photonEnergies, 
-                  intensities, 
+                  photonEnergy, 
+                  intensity, 
                   responseFrame, 
                   plot=False):
     r"""
@@ -835,7 +837,7 @@ def checkFidelity(signals,
         normalized).
         
     plot: Bool
-        Flag for plotting unfolded spectrum. The default is False.
+        Flag for plotting the self-consistency check. The default is False.
 
     Returns
     -------
@@ -846,17 +848,95 @@ def checkFidelity(signals,
     """
     from scipy import integrate
     responseEnergy = responseFrame["Energy(eV)"]
-    fidelity = np.zeros(len(channels))
-    for idx, ch in enumerate(channels):
-        chanResponse = responseFrame[ch]
-        responseInterp = np.interp(photonEnergies, responseEnergy, chanResponse)
-        convolve = intensities*responseInterp
-        fidelity[idx] = integrate.simps(y=convolve, x=photonEnergies)
+    responseOnly = responseFrame.drop("Energy(eV)", axis=1)
+    # initialize fidelity to number of channel responses
+    fidelity = np.zeros(responseOnly.shape[1]) 
+    # keep track of channels checked for fidelity
+    fidChan = responseOnly.columns.to_numpy()
+    idx=0
+    for idx, channel in enumerate(fidChan):
+        # print(channel)
+        chanResponse = responseFrame[channel]
+        responseInterp = np.interp(photonEnergy, responseEnergy, chanResponse)
+        convolve = intensity*responseInterp
+        fidelity[idx] = integrate.simps(y=convolve, x=photonEnergy)
+        idx+=1
     if plot:
         plt.plot(channels, signals)
-        plt.plot(channels, fidelity)
-        plt.ylabel('Spectrum (GW/sr/eV)')
-        plt.xlabel('Photon Energy (eV)')
-        plt.title('Spectrum from cubic spline knots')
+        plt.plot(fidChan, fidelity)
+        plt.ylabel('Signal (V)')
+        plt.xlabel('Channels')
+        plt.title('Cubic Spline Fidelity')
         plt.show()
     return fidelity
+
+def checkFidelityStreak(timeCheck,
+                        timesFrame, 
+                        signalsFrame, 
+                        channels,
+                        responseFrame,
+                        energies,
+                        intensities):
+    """
+    
+
+    Parameters
+    ----------
+    timeCheck : numpy.ndarray
+        The times at which to check the Fiducia calculated x-ray flux against
+        the measured Dante signals.
+        
+    timesFrame: pandas.core.frame.DataFrame
+        Dataframe containing time axis corresponding to dante signals in
+        df dataframe. See timesScope() and bkgCorrect().
+        
+    signalsFrame: pandas.core.frame.DataFrame
+        Dante dataframe with background corrected values and scaled
+        to units of volts. See readDanteData(), bkgCorrect() and
+        voltageScale().
+        
+    channels: list, numpy.ndarray
+        List or array of relevant DANTE channel numbers.
+        
+    responseFrame: pandas.core.frame.DataFrame
+        DANTE channel responses as a function of photon energy (not 
+        normalized).
+        
+    energies: numpy.ndarray
+        Photon energy axis of unfolded streaked spectra.
+        
+    intensities: numpy.ndarray
+        Spectral intensity axis of unfolded streaked spectra.
+
+    Returns
+    -------
+    fidelityFrame : pandas.core.frame.DataFrame
+        DataFrame containing the Dante signal values calculated from
+        reconvolving the cubic spline solution with the Dante response 
+        functions.
+
+    """
+    # use a for loop over select times to check fidelity of streak
+    # timeCheck = np.array([1e-9, 2e-9]) #array of times to be checked
+    responseOnly = responseFrame.drop("Energy(eV)", axis=1)
+    fidelityFrame = pd.DataFrame(columns = timeCheck,
+                                 index = responseOnly.columns)
+    
+    timeStep = timesFrame[1]-timesFrame[0]
+    for idx, time, in enumerate(timeCheck):
+        timeIdx = np.where((timesFrame <= time + timeStep/2) & 
+                           (timesFrame >= time - timeStep/2))[0][0]
+        getTime = timesFrame[timeIdx]
+        signalStep = signalsAtTime(getTime, 
+                                   timesFrame, 
+                                   signalsFrame, 
+                                   channels)
+        energyStep = energies[:, timeIdx]
+        intensityStep = intensities[:, timeIdx]
+        fidelityFrame[time] = checkFidelity(signalStep,
+                                            channels,
+                                            energyStep,
+                                            intensityStep,
+                                            responseFrame,
+                                            plot=True)
+    return fidelityFrame
