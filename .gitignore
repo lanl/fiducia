@@ -1,0 +1,10 @@
+
+.spyproject/codestyle.ini
+.spyproject/encoding.ini
+.spyproject/vcs.ini
+.spyproject/workspace.ini
+fiducia.egg-info/dependency_links.txt
+fiducia.egg-info/PKG-INFO
+fiducia.egg-info/SOURCES.txt
+fiducia.egg-info/top_level.txt
+fiducia.egg-info/zip-safe
