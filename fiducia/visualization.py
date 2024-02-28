@@ -64,7 +64,7 @@ def plotResponse(channels,
         
     """
     # getting sensible figure bounds
-    yMax = np.max(np.max(responseFrame[channels]))
+    yMax = responseFrame[channels].max().max()
     yMin = yMax / 1e11
     xMin = 1e1
     xMax = 1e5

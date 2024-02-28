@@ -176,6 +176,7 @@ def loadResponses(channels, fileName, solid=True):
     """
 
     solidAngles = fiducia.misc.solidAngles
+    chamberRad = fiducia.misc.chamberRadius
     # loading all the response functions
     dataFrame = pd.read_csv(fileName)
     #clean headers
@@ -196,7 +197,7 @@ def loadResponses(channels, fileName, solid=True):
         for chan in channels:
             #multiply each element by the corresponding channel solid angle
             #convert V/GW to V/W for benchmarking against Mathematica Fiducia
-            responseFrame.loc[:, chan] *= solidAngles[chan-1]*1e-9
+            responseFrame.loc[:, chan] *= solidAngles[chan-1]**2*1e-9*chamberRad**2
             #save metadata that we already include solid angle
             responseFrame.solid = True
 
@@ -362,7 +363,7 @@ def signalsAtTime(time,
                                       value=time)
             signals[idx] = df[channel][timeIdx]
         elif method == "interp":
-            signals[idx] = np.interp(x=time,
+            signals[idx] = np.interp(x=time*1e-9,
                                      xp=timesFrame[channel],
                                      fp=df[channel])
         else:

@@ -47,17 +47,18 @@ def gen_fact(a, b, method = 'vector'):
     if method == 'old':
         gf = 1
         for idx in range(a-b, a):
-            # print(idx+1)
             gf = gf*(idx+1)
         return gf
     
     #vectorized factorial based on scipy functions
     if method == 'vector':
-        spFact = sp.math.factorial
+        spFact = sp.special.factorial
         fact = sp.vectorize(spFact, otypes='O')
         diff = a - b
         diffBool = (a-b>=0)*1
-        gf = np.clip(fact(a)/fact(np.abs(diff))*diffBool, 0, None)
+        num = fact(a, exact=True)
+        denom = fact(np.abs(diff), exact=True)
+        gf = np.clip(num/denom*diffBool, 0, None)
         return gf
 
 # the Gram Polynomial 
@@ -102,7 +103,6 @@ def gram_poly(i, m, k, s, method = 'vector'):
                 gfProd = gf1*gf2/gf3
                 terms[idx] = ((-1)**(j + k))/(jFact**2)*gfProd
             gram_poly = np.sum(terms)
-            # print(terms)
             return gram_poly
         
     if method == 'vector':
@@ -119,16 +119,13 @@ def gram_poly(i, m, k, s, method = 'vector'):
                 gf3 = gen_fact(2*m, j)
                 gfProd = gf1*gf2/gf3
                 terms[idx] = ((-1)**(j + k))/(jFact**2)*gfProd
-            # print(terms)
         gram_poly = np.sum(terms, axis = 0)
-        # print(gram_poly)
         return gram_poly
     
     if method == 'old':
         if k > 0:
             term1 = (4*k-2)/(k*(2*m - k + 1))
             term2 = ((k-1)*(2*m + k)/(k*(2*m - k + 1)))
-            # print(term1, term2)
             gram1 = (i*gram_poly(i, m, k-1, s) + s*gram_poly(i, m, k-1, s-1))
             gram_poly = term1 * gram1 - term2 * gram_poly(i, m, k-2, s)
             return  gram_poly
@@ -229,12 +226,10 @@ def sg_filter_gram(signal, window, order, der = 0, method = 'vector'):
         t = np.arange(-m, m+1)
         weightArr = 1*conv_weight(i,t,m,n,s, method = method )
     
-    # print("calc weights")
 
     sgFilter = pd.Series(0., index = np.arange(signalLen))
     for idx in range(m+1, signalLen-1):
         if idx <= m+1:
-            # print("first window")
             signalSeg = np.asarray(signal[0:2*m + 1])
             filterArr = weightArr * signalSeg
             filterSeg = np.sum(filterArr, axis=1)
@@ -242,8 +237,6 @@ def sg_filter_gram(signal, window, order, der = 0, method = 'vector'):
             # sgFilter[0:m] = filterSeg[0:m]
             # break
         elif idx + m >= signalLen:
-            # print("last window")
-            # print(idx)
             rightIdx = (2*m + 1)
             signalSeg = np.asarray(signal[signalLen - rightIdx:signalLen])
             filterArr = weightArr * signalSeg
@@ -253,7 +246,6 @@ def sg_filter_gram(signal, window, order, der = 0, method = 'vector'):
             # sgFilter = filterSeg[signalLen-m:signalLen]
         else:
             rightIdx = (idx + 2*m + 1)
-            # print(idx, str(2*m +1))
             signalSeg = np.asarray(signal[idx - m:idx + m + 1])
             ### old method ###
             # filterArr = weightArr * signalSeg
@@ -296,16 +288,16 @@ def noise(signal):
     noise1 = signal-sgFilter
     noise1SG = savgol_filter(noise1, 31, 3)
     noise2 = noise1-noise1SG
-    noise1Var = np.var(noise1)
+    # noise1Var = np.var(noise1)
     sigma = np.var(noise2)
-    noiseMean = np.mean(noise2)
-    noiseMin = np.min(noise1)
-    noiseMax = np.max(noise2)
-    points = np.linspace(noiseMin, noiseMax, 5000)
-    sgMaster = (signal - noise2)
+    # noiseMean = np.mean(noise2)
+    # noiseMin = np.min(noise1)
+    # noiseMax = np.max(noise2)
+    # points = np.linspace(noiseMin, noiseMax, 5000)
+    # sgMaster = (signal - noise2)
     return sigma
 
-def n_opt(signal, der = 0, sigma = "auto", method = 'vector'):
+def n_opt(signal, der = 0, sigma = "auto", method = 'vector', print_n = False):
     """
     Calculates the optimal window length using a slightly modified version of
     the algorithm outlined in Sadeghi et al.
@@ -322,8 +314,12 @@ def n_opt(signal, der = 0, sigma = "auto", method = 'vector'):
         default is "auto", which calls the noise function to estimate this
         value.
     method : string, optional
-        DESCRIPTION. The default is 'vector' and the defaul gives the fastest
-        result.
+        Which method, either vectorized ('vector') or serialized ('new'), to 
+        use when finding the optimum window n. The default is 'vector' and the
+        default gives the fastest result.
+    print_n : string, optional
+        Prints the window size for each iteration of the optimization. The
+        default is 'False'
 
     Returns
     -------
@@ -338,8 +334,9 @@ def n_opt(signal, der = 0, sigma = "auto", method = 'vector'):
         sigma = noise(signal)
     while np.abs(nOpt-n1) > 1:
         k = 2
+        if print_n == True:
+            print('n1 = ' +str(int(2*np.floor(nOpt/2) + 1)))
         n1 = int(2*np.floor(nOpt/2) + 1)
-        print('n1 = ' +str(n1))
         y = sg_filter_gram(signal, n1, k, der, method = method)
         yPrime = np.diff(y)
         dy = sg_filter_gram(yPrime, n1, k, der, method = method)
