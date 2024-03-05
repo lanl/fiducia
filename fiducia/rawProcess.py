@@ -21,7 +21,8 @@ from scipy.signal import find_peaks, peak_prominences
 
 # custom modules
 from fiducia.misc import find_nearest
-from fiducia.loader import readDanteData, readDanteDataOld
+from fiducia.loader import readDanteData, readDanteDataOld 
+from fiducia.loader import readDanteDatah5Legacy
 import fiducia.pltDefaults
 
 
@@ -1432,6 +1433,8 @@ def loadCorrected(danteFile,
         hf, df = readDanteData(danteFile)
     if dataFormat == 'old':
         hf, df = readDanteDataOld(danteFile)
+    if dataFormat == 'h5_legacy':
+        hf, df = readDanteDatah5Legacy(danteFile)
     # get set of all dante channels with useful data
     onCh = onChannels(hf)
     print(f'Analyzing channels {onCh}')
