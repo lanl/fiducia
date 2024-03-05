@@ -64,7 +64,7 @@ def plotResponse(channels,
         
     """
     # getting sensible figure bounds
-    yMax = np.max(np.max(responseFrame[channels]))
+    yMax = responseFrame[channels].max().max()
     yMin = yMax / 1e11
     xMin = 1e1
     xMax = 1e5
@@ -91,7 +91,7 @@ def plotResponse(channels,
     return
 
 
-def plotTraces(channels, measurementFrame, scale='regular'):
+def plotTraces(channels, timesFrame, signalsFrame, scale='regular'):
     r"""
     Given a dataframe of Dante channel data, plot all the signal
     traces onto a single plot.
@@ -120,8 +120,8 @@ def plotTraces(channels, measurementFrame, scale='regular'):
     """
     if scale == 'regular':
         for channel in channels:
-            plt.plot(measurementFrame['Time' + str(channel)],
-                     measurementFrame['Signal' + str(channel)],
+            plt.plot(timesFrame[channel],
+                     signalsFrame[channel],
                      label=str(channel))
         plt.legend(frameon=False,
                    labelspacing=0.001,
@@ -132,8 +132,8 @@ def plotTraces(channels, measurementFrame, scale='regular'):
         plt.show()
     elif scale == 'log':
         for channel in channels:
-            plt.semilogy(measurementFrame['Time' + str(channel)],
-                         measurementFrame['Signal' + str(channel)],
+            plt.semilogy(timesFrame[channel],
+                         signalsFrame[channel],
                          label=str(channel))
         plt.legend(frameon=False,
                    labelspacing=0.001,

@@ -42,7 +42,7 @@ solidAngles = [4.48e-6,
                7.07e-6]
 
 # radius of OMEGA chamber
-chamberRadius = 180 * u.cm
+chamberRadius = 180 #* u.cm
 
 def find_nearest(array, value):
     r"""

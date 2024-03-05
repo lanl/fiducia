@@ -19,7 +19,7 @@ from fiducia.cspline import splineCoordsInv, segmentsArr, dToyArr, yChiCoeffArrE
 from fiducia.misc import areDataFramesCompatible
 from fiducia.stats import trapzVariance, gradientVariance, interpVariance
 from fiducia.response import knotFind
-from fiducia.loader import loadResponses, loadResponseUncertainty
+from fiducia.loader import loadResponses, loadResponseUncertainty, signalsAtTime
 # listing all functions declared in this file so that sphinx-automodapi
 # correctly documents them and doesn't document imported functions.
 __all__ = ["detectorErrMC",
@@ -30,8 +30,46 @@ __all__ = ["detectorErrMC",
            "detectorUncertainty"
            ]
 
+# errors from K.M. Campbell RSI paper (2004)
+def defaultErrors():
+    """
+    Generates the random and systematic errors for each channel response
+    function from the 2004 paper by K.M. Campbell for existing Dante equipment.
+    The random errors represent the error bar of each measured point along the
+    response function curve. The systematic error acts like a multiplier to
+    the entire response function.
+    
+    For Monte Carlo sampling of the response functions, you draw a random
+    number for each point along the response curve using a normal distribution:
+        i.e. channel 3 has response `R_3(e*)` at energy `e*` with a random error of
+        18%. The value drawn for the Monte Carlo would then be (using numpy)
+        `np.random.normal(R_3(e*), 0.18*R_3(e*))`. This can be done as a vector of
+        all points in the channel: `responseMC = np.random.normal(R_3, sig)` 
+        where `sig = randErrors*R_3`
+    
+    To apply the systematic error, simply draw a random number using a mean of
+    zero and multiply it by the response:
+        i.e. channel 3 has a systematic error of 11.5% Draw a random number
+        using numpy `rand = np.random.normal(0, 0.115)` and then multiply it 
+        to the response function `responseMC = R_3*(1+rand)`
+    Systematic errors propagate forward to being uncertainties on the voltage
+    reading for each channel. This can be added in quadrature to the
+    digitizer/cable chain noise for a true error bar of the voltages. You can
+    prove this yourself with an MC of your very own!
 
+    Returns
+    -------
+    randErrors : numpy.ndarray
+        The random errors of each channel in order from 1 to 18.
+    sysErrors : numpy.ndarray
+        The systematic errors of each channel in order from 1 to 18.
 
+    """
+    randErrors = np.array([7.8, 7.8, 18., 13.2, 8.3, 7.1, 7.1, 7.1, 7.1,
+                           5.4, 5.4, 5.4, 5.4, 5.4, 5.4, 5.4, 5.4, 5.4])
+    sysErrors = np.array([17.4, 8.2, 11.5, 6.0, 3.8, 2.3, 2.3, 2.3, 2.3,
+                          2.3, 2.3, 2.3, 2.3, 2.3, 2.3, 2.3, 2.3, 2.3])
+    return randErrors, sysErrors
     
 def detectorErrMC(detArr, detArrVariance, samples=10000,
                   boundary="y0", MChistogram=False):
@@ -53,7 +91,7 @@ def detectorErrMC(detArr, detArrVariance, samples=10000,
         photon energy range that detArr spans.
     
     samples : int, optional
-        Number of MCs amples to run. Default is `10000`.
+        Number of MC samples to run. Default is `10000`.
     
     boundary : str, optional
         Choose whether yGuess corresponds to :math:`y_0` (lowest photon energy) or
@@ -595,3 +633,74 @@ def detectorUncertainty(channels,
             csplineDatasetFile = 'csplineDataset_' + str(datetime.datetime.now().date()) + '.nc'
         csplineDataset.to_netcdf(csplineDatasetFile)
     return csplineDataset 
+
+def pchipMC(responseFrame,
+            channels,
+            timesFrame,
+            df,
+            time,
+            randErrors = 'default',
+            sysErrors = 'default',
+            samples = 1000):
+    chanErrorsSelect = randErrors[np.array(channels)-1]
+    # samples = 1000 #number of samples in MC
+    responseFrameMC = responseFrame.copy()
+    vSignals = signalsAtTime(time,
+                             timesFrame,
+                             df,
+                             channels)
+    initial = np.clip(Linespline[10], 0, np.inf)
+    # bounds = [(0, np.inf),(0, np.inf),(0, np.inf),(0, np.inf),
+    #           (0, np.inf),(0, np.inf),(0, np.inf),(0, np.inf),
+    #           (0, np.inf),(0, np.inf)]
+    bounds = [(0, np.inf) for _ in range(len(channels))]
+    
+    y0 = 1e-1*initial[0]
+    
+    interpLen = responseFrame.shape[0]*10
+    xInterp = np.linspace(min(knots), max(knots), num = interpLen)
+    
+    # initialize storage arrays
+    splineVals = np.zeros((samples, len(goodChan)+1))
+    randVoltages = np.zeros((samples, len(goodChan)))
+    fidelityVals = np.zeros((samples, len(detChan)))
+    deltaVals = np.zeros((samples, len(goodChan)))
+    
+    
+    for idx in range(0, samples):
+        randVoltages[idx] = np.random.normal(vSignals, 0.05)
+        # contruct random response functions
+        print(idx)
+        print("generate responses")
+        for idx2, chan in enumerate(detChan):
+            responseTest = responseFrame[chan]
+            randNums = randErrors[chan - 1]*1e-2*responseTest
+            
+            randResponse = np.random.normal(responseTest, randNums)
+            # respMult = np.random.normal(0, sysErrors[chan - 1])*1e-2
+            # responseFrameMC[chan] = randResponse*(1 + respMult)
+            responseFrameMC[chan] = randResponse
+        print("calculation complete")    
+        fiduciaSolve = minimize(minFunc,
+                                initial,
+                                args = (responseFrameMC,
+                                        goodChan,
+                                        knots,
+                                        vSignals,
+                                        y0),
+                                method = "Nelder-Mead",
+                                bounds = bounds)
+        splineVals[idx] = np.insert(fiduciaSolve.x, 0, y0)
+        print( "solver completed")
+        pchipSpline = pchip(knots, splineVals[idx], xInterp)
+        fidelityVals[idx] = cspline.checkFidelity(vSignals,
+                                                  goodChan,
+                                                  xInterp,
+                                                  pchipSpline,
+                                                  responseFrameMC,
+                                                  plot = False)
+        
+        deltaVals[idx] = fidelityVals[idx][:10] - vSignals
+        print("step "+str(idx) + " complete")
+    
+        return None
