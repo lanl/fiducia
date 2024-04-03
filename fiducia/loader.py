@@ -435,12 +435,12 @@ def signalInt(channels,
     chLen = len(channels)
     signalInt = np.zeros(chLen)
     for idx, channel in enumerate(channels):
-        timeseries = timesFrame[channel]*1
+        timeseries = timesFrame[channel]
         chanseries = df[channel]
         if method == 'nearest':
             timeIdx1, _ = find_nearest(array=timeseries, value=tStart*1e-9)
             timeIdx2, _ = find_nearest(array=timeseries, value=tEnd*1e-9)
-            print(timeIdx1, timeIdx2)
+            # print(timeIdx1, timeIdx2)
             signalInt[idx] = integrate.simps(y=chanseries[timeIdx1:timeIdx2],
                                              x=timeseries[timeIdx1:timeIdx2])
         elif method == 'interp':

@@ -99,7 +99,9 @@ def knotFind(channels,
     if boundary == 'y0':
         knotsAppend = np.append([knotBoundary], knots)
     elif boundary == 'yn+1':
-        knotsAppend = np.append(knots, [knotBoundary])
+        # knotsAppend = np.append(knots, [knotBoundary])
+        print("yn+1 is deprecated. Using y0 instead")
+        knotsAppend = np.append([knotBoundary], knots)
     else:
         raise Exception(f"No method found for boundary {boundary}.")
     #the initial energy point should be 1 not 0 (added by DHB 9/12/22)

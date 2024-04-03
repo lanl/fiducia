@@ -32,10 +32,14 @@ def gen_fact(a, b, method = 'vector'):
 
     Parameters
     ----------
-    a : integer
+    a : int
         Right bound number.
-    b : integer
+    b : int
         Left bound number.
+    method : str
+        Chooses between using single values or lists of values for inputs a and
+        b. The 'old' method should probably be done away with. The default is
+        'vector'.
 
     Returns
     -------

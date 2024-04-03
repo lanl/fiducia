@@ -1579,6 +1579,14 @@ def hysteresisCorrect(timesFrame,
         for indentifying peaks in scipy's find_peaks(). This is a multiple
         of the signal average.
         
+    sigmaMult: float
+        Multiplier factor by which the lower and upper bounds of the signal
+        containing region are determined. The lower bound is determined
+        by sigmaMult times the width of the earliest peak away from the
+        earliest peak. The upper bound is determined by sigmaMult times the
+        width of the latest peak away from the latest peak. Default is 3
+        for approximately 3*sigma away from each peak.
+        
     forceEdges: numpy.ndarray
         array of edge values specified by the user for specific channels. The
         appropriate formatting in [channel, left bound, right bound]. The
@@ -1687,9 +1695,9 @@ def align(timesFrame,
                         f" are only {peaksNum} peaks.")
     # finding tallest peaks in the signal
     # print(peaksNum, prominence, width, avgMult)
-    peaksFrame = getPeaks(timesFrame, 
-                          df,
-                          channels,
+    peaksFrame = getPeaks(timesFrame=timesFrame, 
+                          df=df,
+                          channels=channels,
                           peaksNum=peaksNum,
                           plot=False,
                           prominence=prominence,
