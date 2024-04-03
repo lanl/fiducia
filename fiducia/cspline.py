@@ -626,6 +626,12 @@ def detectorArr(channels, knots, responseFrame, boundary="y0", npts=1000):
     Examples
     --------
     """
+    if boundary == "yn+1":
+        print("yn+1 boundary is deprecated. Using y0 instead.")
+        boundary = "y0"
+    else:
+        raise Exception(f"No method found for boundary {boundary}.")
+    
     # number of DANTE channels where we have useful measurements
     chLen = len(channels)
     # initialize normalized energies array
@@ -704,8 +710,12 @@ def knotSolve(signals,
         detArr = detArr.isel(knot_point=slice(1, None))
     elif boundary == "yn+1":
         # extracting column corresponding to y_{n+1}
-        detArrBoundaryCol = detArr.isel(knot_point=-1)
-        detArr = detArr.isel(knot_point=slice(None, -1))
+        # detArrBoundaryCol = detArr.isel(knot_point=-1)
+        # detArr = detArr.isel(knot_point=slice(None, -1))
+        print("yn+1 boundary is deprecated. Using y0 instead.")
+        boundary = "y0"
+        detArrBoundaryCol = detArr.isel(knot_point=0)
+        detArr = detArr.isel(knot_point=slice(1, None))
     else:
         raise Exception(f"No method found for boundary {boundary}.")
         
