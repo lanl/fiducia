@@ -21,7 +21,7 @@ __all__ = ["knotFind"]
 def knotFind(channels,
              responseFrame,
              forceKnot=np.array([]),
-             knotBoundary=0,
+             knotBoundary=1,
              boundary='y0'):
     r"""Find knot points.
     
@@ -67,17 +67,28 @@ def knotFind(channels,
         # if forceKnot isn't an empty list, then we go about forcing the user
         # provided values.
         if forceKnot.size != 0:
-            if channel in forceKnot[:,0]:
-                # if the channel is forced by the user then put the user provided
-                # photon energy into the knots array
-                forceIdx = np.where(forceKnot[:,0] == channel)
-                knots[idx] = forceKnot[forceIdx, 1]
+            if forceKnot.ndim > 1:
+                if channel in forceKnot[:,0]:
+                    # if the channel is forced by the user then put the user provided
+                    # photon energy into the knots array
+                    forceIdx = np.where(forceKnot[:,0] == channel)
+                    knots[idx] = forceKnot[forceIdx, 1]
+                else:
+                    # finding largest negative gradient, which should correpond to the
+                    # K-edge of the DANTE channel filter.
+                    grad = -np.gradient(responseFrame[channel])
+                    maxIndex = np.argmax(grad)
+                    knots[idx] = responseFrame['Energy(eV)'][maxIndex]
             else:
-                # finding largest negative gradient, which should correpond to the
-                # K-edge of the DANTE channel filter.
-                grad = -np.gradient(responseFrame[channel])
-                maxIndex = np.argmax(grad)
-                knots[idx] = responseFrame['Energy(eV)'][maxIndex]
+                if forceKnot[0]==channel:
+                    # forceIdx = np.where(forceKnot[0] == channel)
+                    knots[idx] = forceKnot[1]
+                else:
+                    # finding largest negative gradient, which should correpond to the
+                    # K-edge of the DANTE channel filter.
+                    grad = -np.gradient(responseFrame[channel])
+                    maxIndex = np.argmax(grad)
+                    knots[idx] = responseFrame['Energy(eV)'][maxIndex]   
         else:
             # finding largest negative gradient, which should correpond to the
             # K-edge of the DANTE channel filter.
@@ -88,7 +99,10 @@ def knotFind(channels,
     if boundary == 'y0':
         knotsAppend = np.append([knotBoundary], knots)
     elif boundary == 'yn+1':
-        knotsAppend = np.append(knots, [knotBoundary])
+        # knotsAppend = np.append(knots, [knotBoundary])
+        print("yn+1 is deprecated. Using y0 instead")
+        knotsAppend = np.append([knotBoundary], knots)
     else:
         raise Exception(f"No method found for boundary {boundary}.")
+    #the initial energy point should be 1 not 0 (added by DHB 9/12/22)
     return knotsAppend

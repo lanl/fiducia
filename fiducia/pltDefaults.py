@@ -136,9 +136,6 @@ def plot_scatter_bars(xData, yData, yErrsPos, yErrsNeg=[], label="", **kwargs):
         Y-axis data to be plotted.
         
     yErrsPos: numpy.ndarray
-        Errors on yData.
-        
-    yErrsPos: numpy.ndarray
         When errors on yData are asymmetric, these are the positive
         side errors.
         

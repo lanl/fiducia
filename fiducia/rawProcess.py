@@ -16,12 +16,13 @@ Utilities for processing raw DANTE data. Typical steps include:
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.signal import find_peaks
+from scipy.signal import find_peaks, peak_prominences
 #from skimage import feature
 
 # custom modules
 from fiducia.misc import find_nearest
-from fiducia.loader import readDanteData
+from fiducia.loader import readDanteData, readDanteDataOld 
+from fiducia.loader import readDanteDatah5Legacy
 import fiducia.pltDefaults
 
 
@@ -82,7 +83,7 @@ def noScope(hf):
     for idx in range(totalChannels):
         ch = idx + 1
         chStr = str(ch)
-        if hf[chStr]['Scope type'] == 9999:
+        if hf[chStr]['Scope type'] == 9999 or hf[chStr]['Scope type'] == 0:
             offScope.append(ch)
     return set(offScope)
 
@@ -227,11 +228,11 @@ def timesScope(hf):
     for key in hf.keys():
         timeCode = str(hf[key]['Full scale Hor time'])
         # if the time code is 99, it means the scope was off
-        if timeCode == '99':
+        if timeCode == '99' or timeCode == '0':
             print(f"No timespan for channel {key}.")
         # extracting total time spanned by the oscilloscope trace based on the
         # time code. For example, a time code of 208 means 2.0e-8 seconds.
-        else:
+        elif timeCode == '208':
             # assuming decimal point comes after first number, and all but the last
             # number are part of the significand.
             timeSpan = float(timeCode[0] + '.' + timeCode[1:-1] + 'e-' + timeCode[-1])
@@ -243,11 +244,36 @@ def timesScope(hf):
             timeStep = timeSpan / (scopePts - 1)
             # constructing array of times for convience in analysis/plotting
             timesFrame[key] = np.arange(scopePts) * timeStep
+        else:
+            print(f"channel {key} unreadable")
 
     return timesFrame
 
+def get_bits(hf, bitFile):
+    
+    bitFrame = pd.read_excel(bitFile)
+    # channels = hf.columns.to_numpy()[0:18].astype("int64")
+    # get serial number of scope based on channel
+    chBits = pd.DataFrame(1, index=['Bitness'], columns=hf.columns)
+    for key in hf.keys():
+        serial = hf[key]["Jumper Cable"]
+        if serial == 0:
+            bitVal = 11
+            chBits[key] = bitVal
+        else:
+            bit = bitFrame[bitFrame['Scope#'] == serial]['Bits']
+            if bit.shape[0] == 0:
+                bitVal = 11
+                chBits[key] = bitVal
+            else:
+                bitVal = bit.values
+                # chan = int(ch)
+                chBits[key] = bitVal
+            
+    return chBits
 
-def voltageScale(hf, df):
+
+def voltageScale(hf, df, bitFile):
     r"""
     Scales voltage (vertical) axis of dante signals based on information
     contained in the header. Returns a dataframe with the dante signals
@@ -282,7 +308,7 @@ def voltageScale(hf, df):
     --------
     """
     # number of bits in ADC converter
-    bits = 11
+    bits = get_bits(hf, bitFile)
     # number of bins/segments that voltage range is divided into. This
     # defines the uncertainty in the measurements due to the oscilloscope
     # and is one less than the total number of points spanning the range
@@ -296,7 +322,8 @@ def voltageScale(hf, df):
         # channel voltage scale in units of volts
         maxVoltage = hf[key]['Full Scale Vert mV'] / 1e3
         # scale conversion factor
-        countsToVolts = maxVoltage / bitRange
+        bitRangeKey = bitRange[key].values[0]
+        countsToVolts = maxVoltage / bitRangeKey
         # converting oscilloscope traces from counts to volts
         dfScaled[key] = df[key] * countsToVolts
         # uncertainties are constant and based on the ADC resolution
@@ -679,7 +706,7 @@ def polyBkg(time,
             plot=False):
     r"""
     Fit polynomial function to ends of the signal as an estimate of the
-    background signal + hyesteresis. Default is cubic fit.
+    background signal + hysteresis. Default is cubic fit.
     
     Parameters
     ----------
@@ -769,7 +796,8 @@ def signalEdges(timesFrame,
                 plot=False,
                 prominence=0.1,
                 width=10,
-                avgMult=1):
+                avgMult=1,
+                forceEdges=None):
     r"""
     Determines locations and widths of peaks above the mean of the signal
     for each dante channel. Edges of the signal containing region are then
@@ -817,6 +845,11 @@ def signalEdges(timesFrame,
         Multiplicative factor for setting minimum intensity threshold
         for indentifying peaks in scipy's find_peaks(). This is a multiple
         of the signal average.
+        
+    forceEdges: numpy.ndarray
+        array of edge values specified by the user for specific channels. The
+        appropriate formatting in [channel, left bound, right bound]. The
+        default is None.
     
     Returns
     -------
@@ -841,34 +874,57 @@ def signalEdges(timesFrame,
                                        height=avgMult * np.mean(signal),
                                        prominence=prominence,
                                        width=width)
+        # if no peaks are detected, just take the max of the input signal
+        # find the prominence of the max and re-run find_peaks
+        if len(peaks)==0:
+            sigMax = np.array([signal.idxmax()])
+            prom2, _, _ = peak_prominences(signal, sigMax)
+            prom2Val = prom2[0]
+            peaks, properties = find_peaks(signal,
+                                           height=avgMult * np.mean(signal),
+                                           prominence=prom2Val,
+                                           width=width)
         # determining lower and upper bounds of signal region by taking first
         # and last peaks and shifting by distance of peak width
-        width1 = properties["widths"][0]
+        # width1 = properties["widths"][0]
         # width / 2 is kind of like sigma, and then that multiplied by 3 is
         # like 3 sigma away.
-        lowerBnd = peaks[0] - sigmaMult * width1 / 2
-        width2 = properties["widths"][-1]
-        upperBnd = peaks[-1] + sigmaMult * width2 / 2
+        # pick the highest peak
+        pHeights = properties["peak_heights"]
+        highest = np.where(pHeights == max(pHeights))[0]
+        # set the width as the width of the first peak
+        width1 = properties["widths"][highest]
+        # lower and upper bounds are multiples of peak width
+        lowerBnd = peaks[highest] - sigmaMult * width1 / 2
+        upperBnd = peaks[highest] + sigmaMult * width1 / 2
         # saving these edges to the dataframe which is to be returned
-        edgesFrame[ch][0] = int(round(lowerBnd))
-        edgesFrame[ch][1] = int(round(upperBnd))
+        edgesFrame[ch][0] = int(round(lowerBnd[0]))
+        edgesFrame[ch][1] = int(round(upperBnd[0]))
+        if type(forceEdges)!=type(None):
+            for idx, (chan, lb, rb) in enumerate(forceEdges):
+                if lb>rb:
+                    print("check bounds format (should be [channel, lb, rb])")
+                    break
+                else:
+                    edgesFrame[chan][0] =  lb
+                    edgesFrame[chan][1] = rb
         if plot:
             # plotting
             plt.plot(times, signal)
             plt.plot(times[peaks], signal[peaks], "x")
             plt.vlines(x=times[peaks],
-                       ymin=signal[peaks] - properties["prominences"],
-                       ymax = signal[peaks],
-                       color = "C1")
+                        ymin=signal[peaks] - properties["prominences"],
+                        ymax = signal[peaks],
+                        color = "C1")
             plt.hlines(y=properties["width_heights"],
-                       xmin=times[properties["left_ips"]],
-                       xmax=times[properties["right_ips"]],
-                       color = "C1")
+                        xmin=times[(properties["left_ips"]).astype('int64')],
+                        xmax=times[(properties["right_ips"]).astype('int64')],
+                        color = "C1")
             plt.hlines(y=avgMult * np.mean(signal),
-                       xmin=times[0],
-                       xmax=times[len(signal) - 1],
-                       color = "C2",
-                       linestyles='--')
+                        xmin=times[0],
+                        xmax=times[len(signal) - 1],
+                        color = "C2",
+                        linestyles='--')
             plt.scatter(times[edgesFrame[ch][0]],
                         signal[edgesFrame[ch][0]],
                         color="C3")
@@ -1117,6 +1173,7 @@ def getPeaks(timesFrame,
     """
     peaksFrame = pd.DataFrame(index=np.arange(peaksNum), columns=df.keys())
     for ch in channels:
+        print(ch)
         times = timesFrame[ch]
         signal = df[ch]
         # finding peaks which are above the mean of the signal
@@ -1124,6 +1181,16 @@ def getPeaks(timesFrame,
                                        height=avgMult * np.mean(signal),
                                        prominence=prominence,
                                        width=width)
+        # if no peaks are detected, just take the max of the input signal
+        # find the prominence of the max and re-run find_peaks
+        if len(peaks)==0:
+            sigMax = np.array([signal.idxmax()])
+            prom2, _, _ = peak_prominences(signal, sigMax)
+            prom2Val = prom2[0]
+            peaks, properties = find_peaks(signal,
+                                           height=avgMult * np.mean(signal),
+                                           prominence=prom2Val,
+                                           width=width)
         # selecting the N tallest peaks
         highestPeakIdxs = highestN(signal=signal,
                                    peakIdxs=peaks,
@@ -1141,8 +1208,8 @@ def getPeaks(timesFrame,
                        ymax = signal[peaks],
                        color = "C1")
             plt.hlines(y=properties["width_heights"],
-                       xmin=times[properties["left_ips"]],
-                       xmax=times[properties["right_ips"]],
+                       xmin=times[properties["left_ips"].astype(int)],
+                       xmax=times[properties["right_ips"].astype(int)],
                        color = "C1")
             plt.hlines(y=avgMult * np.mean(signal),
                        xmin=times[0],
@@ -1182,7 +1249,7 @@ def alignPeaks(timesFrame,
         peaksFrame, etc.
     
     referenceTime: float
-        Time in s to which align peaks. Default is 1e-9 s or 1 ns.
+        Time in s to which to align peaks. Default is 1e-9 s or 1 ns.
         
     plot: bool
         Flag for plotting aligned dante signals. Default is False.
@@ -1204,7 +1271,7 @@ def alignPeaks(timesFrame,
     --------
     """
     peakAlignIdx = 0 # 0 is first peak, 1 is 2nd peak, etc.
-    referenceTime = 1e-9 # set peaks to occur at 1 ns
+    # referenceTime = 1e-9 # set peaks to occur at 1 ns
     timesAligned = pd.DataFrame().reindex_like(timesFrame)
     for ch in channels:
         time = timesFrame[ch]
@@ -1254,7 +1321,7 @@ def constructMeasurementFrame(timesFrame, df, channels):
         A dataframe of corrected/calibrated dante signal measurements.
         
     channels: list
-        A list of channels for which to apply analyis.
+        A list of channels for which to apply analysis.
         
     Returns
     -------
@@ -1290,9 +1357,11 @@ def constructMeasurementFrame(timesFrame, df, channels):
 def loadCorrected(danteFile,
                   attenuatorsFile,
                   offsetsFile,
+                  bitFile,
                   cut=None,
                   plot=False,
-                  addCh=[]):
+                  addCh=[],
+                  dataFormat = 'new'):
     r"""
     Given a dante data file, an attenuators file, and an offsets file, reads
     the file and applies background correction, attenuation correction, and
@@ -1328,6 +1397,10 @@ def loadCorrected(danteFile,
     addCh: list
         Add channels to analyze. This is used to override which channels
         are listed as on in the header of the data dante data file.
+        
+    dataFormat: str
+        Flag for importing either new or old files. Old files contain no
+        background traces. Defualt is new
     
     Returns
     -------
@@ -1356,7 +1429,12 @@ def loadCorrected(danteFile,
     --------
     """
     # load data
-    hf, df = readDanteData(danteFile)
+    if dataFormat == 'new':
+        hf, df = readDanteData(danteFile)
+    if dataFormat == 'old':
+        hf, df = readDanteDataOld(danteFile)
+    if dataFormat == 'h5_legacy':
+        hf, df = readDanteDatah5Legacy(danteFile)
     # get set of all dante channels with useful data
     onCh = onChannels(hf)
     print(f'Analyzing channels {onCh}')
@@ -1368,7 +1446,7 @@ def loadCorrected(danteFile,
         onChList = list(onCh)
     
     # apply voltage scaling
-    dfVolt, errVolt = voltageScale(hf, df)
+    dfVolt, errVolt = voltageScale(hf, df, bitFile)
     
     # time axis calibration
     timesFrame = timesScope(hf)
@@ -1466,7 +1544,10 @@ def hysteresisCorrect(timesFrame,
                       order=5,
                       prominence=0.2,
                       width=10,
-                      avgMult=1):
+                      avgMult=1,
+                      sigmaMult = 3,
+                      forceEdges=None,
+                      plot=False):
     r"""
     Corrects for hysteresis by detecting edges of signal containing region
     and fitting a polynomial background to regions that do not belong to 
@@ -1498,6 +1579,19 @@ def hysteresisCorrect(timesFrame,
         for indentifying peaks in scipy's find_peaks(). This is a multiple
         of the signal average.
         
+    sigmaMult: float
+        Multiplier factor by which the lower and upper bounds of the signal
+        containing region are determined. The lower bound is determined
+        by sigmaMult times the width of the earliest peak away from the
+        earliest peak. The upper bound is determined by sigmaMult times the
+        width of the latest peak away from the latest peak. Default is 3
+        for approximately 3*sigma away from each peak.
+        
+    forceEdges: numpy.ndarray
+        array of edge values specified by the user for specific channels. The
+        appropriate formatting in [channel, left bound, right bound]. The
+        default is None.
+        
         
     Returns
     -------
@@ -1518,10 +1612,12 @@ def hysteresisCorrect(timesFrame,
     edgesFrame = signalEdges(timesFrame=timesFrame,
                              df=df,
                              channels=channels,
+                             sigmaMult = sigmaMult,
                              plot=False,
                              prominence=prominence,
                              width=width,
-                             avgMult=avgMult)
+                             avgMult=avgMult,
+                             forceEdges=forceEdges)
     
     # removing hysteresis and background with a polynomial fit
     dfPoly = polyBkgFrame(timesFrame=timesFrame,
@@ -1529,7 +1625,7 @@ def hysteresisCorrect(timesFrame,
                           edgesFrame=edgesFrame,
                           channels=channels,
                           order=order,
-                          plot=False)
+                          plot=plot)
     return dfPoly
 
 
@@ -1554,7 +1650,7 @@ def align(timesFrame,
         Dataframe of dante signals. See loadCorrected().
         
     channels: list
-        A list of channels for which to apply analyis.
+        A list of channels for which to apply analysis.
         
     peaksNum: int
         Number of peaks to grab from peakIdxs. This function will grab
@@ -1565,7 +1661,7 @@ def align(timesFrame,
         peaksFrame, etc.
         
     referenceTime: float
-        Time in s to which align peaks. Default is 1e-9 s or 1 ns.
+        Time in s to which to align peaks. Default is 1e-9 s or 1 ns.
         
     prominence: float
         Prominence threshold for identifying peaks in scipy's find_peaks().
@@ -1598,15 +1694,15 @@ def align(timesFrame,
         raise Exception(f"Cannot align to {peakAlignIdx}th peak if there"
                         f" are only {peaksNum} peaks.")
     # finding tallest peaks in the signal
-    peaksFrame = getPeaks(timesFrame=timesFrame,
+    # print(peaksNum, prominence, width, avgMult)
+    peaksFrame = getPeaks(timesFrame=timesFrame, 
                           df=df,
                           channels=channels,
                           peaksNum=peaksNum,
-                          plot=True,
+                          plot=False,
                           prominence=prominence,
                           width=width,
                           avgMult=avgMult)
-    
     # aligning to selected peak
     timesAligned = alignPeaks(timesFrame=timesFrame,
                               df=df,

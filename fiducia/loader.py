@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import scipy.sparse as sparse
+import h5py
 
 
 # custom modules
@@ -128,7 +129,8 @@ def cleanupHeader(dataFrame):
     # stripping whitespace from header names
     colNames = dataFrame.columns
     colNamesStripped = [header.strip() for header in colNames]
-    renameStripDict = {colName: colNamesStripped[idx] for idx, colName in enumerate(colNames)}
+    renameStripDict = {colName: colNamesStripped[idx]
+                       for idx, colName in enumerate(colNames)}
     df1 = dataFrame.rename(columns=renameStripDict)
     # renaming channel headers from e.g. Ch2 to just 2
     allChannels = np.arange(18) + 1
@@ -156,7 +158,8 @@ def loadResponses(channels, fileName, solid=True):
         functions.
     
     solid: Bool, optional
-        Includes solid angle in response function value if true. The default is true.
+        Includes solid angle in response function value if true. The default
+        is True.
         
     Returns
     -------
@@ -174,6 +177,7 @@ def loadResponses(channels, fileName, solid=True):
     """
 
     solidAngles = fiducia.misc.solidAngles
+    chamberRad = fiducia.misc.chamberRadius
     # loading all the response functions
     dataFrame = pd.read_csv(fileName)
     #clean headers
@@ -184,8 +188,8 @@ def loadResponses(channels, fileName, solid=True):
     responseFrame = cleanedFrame[colFilter].copy()
     # convert energy column from strings to floats (if necessary)
     if type(responseFrame['Energy(eV)'][0]) == str:
-        energyFloats = responseFrame['Energy(eV)'].str.replace(',', '').astype(float)
-        responseFrame.loc[:,'Energy(eV)'] = energyFloats
+        energyFloats = responseFrame['Energy(eV)'].str.replace(',', '')
+        responseFrame.loc[:,'Energy(eV)'] = energyFloats.astype(float)
     else:
         energyFloats = responseFrame['Energy(eV)'].astype(float)
         responseFrame.loc[:,'Energy(eV)'] = energyFloats
@@ -193,7 +197,8 @@ def loadResponses(channels, fileName, solid=True):
     if solid:
         for chan in channels:
             #multiply each element by the corresponding channel solid angle
-            responseFrame.loc[:, chan] *= solidAngles[chan-1]
+            #convert V/GW to V/W for benchmarking against Mathematica Fiducia
+            responseFrame.loc[:, chan] *= solidAngles[chan-1]**2*1e-9*chamberRad**2
             #save metadata that we already include solid angle
             responseFrame.solid = True
 
@@ -210,8 +215,8 @@ def loadResponseUncertainty(responseFrame, fileName):
         DataFrame to base the respones uncertainty frame on. 
         
     fileName: str
-        Full path and filename of .csv file containing DANTE response uncertainty
-        percentages functions.
+        Full path and filename of .csv file containing DANTE response
+        uncertainty percentages functions.
 
     Returns
     -------
@@ -233,11 +238,11 @@ def loadResponseUncertainty(responseFrame, fileName):
     channelUncertaintyFrame = pd.read_csv(fileName)
     #clean headers
     cleanedFrame = cleanupHeader(channelUncertaintyFrame)
-    # filtering for columns we care about
+    #filtering for columns we care about
     channels = list(responseFrame.columns.values)
     channels.remove('Energy(eV)')
     responseUncertaintyFrame = responseFrame.copy()
-    #go through each column and fill each element with corresponding uncertainty
+    #fill each column with corresponding uncertainty
     for chan in channels:
         #multiply each responseFrame element by the percent uncertainty
         responseUncertaintyFrame.loc[:, chan] *= cleanedFrame.loc[0, chan]/100
@@ -247,8 +252,9 @@ def loadResponseUncertainty(responseFrame, fileName):
 def readDanProcessed(channels, directory):
     r"""
     Loads DANTE measurement data from files given the channels and path to the
-    directory containing the reduced and aligned DANTE data. Returns a dataframe
-    with the data.
+    directory containing the reduced and aligned DANTE data. Returns a
+    dataframe with the data.
+    
     Note that this is *not* for raw data. It is for reading DANTE signals
     that have already been processed by Dan Barnak's scripts.
     
@@ -302,7 +308,8 @@ def readDanProcessed(channels, directory):
 
 
 def signalsAtTime(time,
-                  measurementFrame,
+                  timesFrame,
+                  df,
                   channels,
                   plot=False,
                   method="interp"):
@@ -318,9 +325,14 @@ def signalsAtTime(time,
     time: float
         Time for which we want DANTE signals (in ns).
         
-    measurementFrame: pandas.core.frame.DataFrame
-        Pandas dataframe containing DANTE measurement data. See
-        readDanteData() and readDanProcessed().
+    timesFrame: pandas.core.frame.DataFrame
+        Dataframe containing time axis corresponding to dante signals in
+        df dataframe. See timesScope() and bkgCorrect().
+        
+    df: pandas.core.frame.DataFrame
+        Dante dataframe with background corrected values and scaled
+        to units of volts. See readDanteData(), bkgCorrect() and
+        voltageScale().
         
     plot: Bool
         When True, plots DANTE signals vs channel index at a particular time.
@@ -348,13 +360,13 @@ def signalsAtTime(time,
     signals = np.zeros(chLen)
     for idx, channel in enumerate(channels):
         if method == "nearest":
-            timeIdx, _ = find_nearest(array=measurementFrame['Time' + str(channel)],
+            timeIdx, _ = find_nearest(array=timesFrame[channel],
                                       value=time)
-            signals[idx] = measurementFrame['Signal' + str(channel)][timeIdx]
+            signals[idx] = df[channel][timeIdx]
         elif method == "interp":
-            signals[idx] = np.interp(x=time,
-                                     xp=measurementFrame['Time' + str(channel)],
-                                     fp=measurementFrame['Signal' + str(channel)])
+            signals[idx] = np.interp(x=time*1e-9,
+                                     xp=timesFrame[channel],
+                                     fp=df[channel])
         else:
             raise Exception(f"Method {method} not found!")
         
@@ -368,26 +380,46 @@ def signalsAtTime(time,
     return signals
 
 
-def signalInt(channels, measurementFrame, tStart, tEnd):
+def signalInt(channels,
+              timesFrame,
+              df, 
+              tStart, 
+              tEnd, 
+              npts=1000, 
+              method = 'interp'):
     r"""
     Get time-integrated Dante signals for a specified time interval. Used in
     getting time-integrated spectrum from the unfold.
     
     Parameters
     ----------
-    measurementFrame: pandas.core.frame.DataFrame
-        Pandas dataframe containing DANTE measurement data. See
-        loadDanteData().
+    timesFrame: pandas.core.frame.DataFrame
+        Dataframe containing time axis corresponding to dante signals in
+        df dataframe. See timesScope() and bkgCorrect().
+        
+    df: pandas.core.frame.DataFrame
+        Dante dataframe with background corrected values and scaled
+        to units of volts. See readDanteData(), bkgCorrect() and
+        voltageScale().
+        
     tStart: float
-        Lower bound for time integration.
+        Lower bound for time integration (in ns).
         
     tEnd: float
-        Upper bound for time integration
+        Upper bound for time integration (in ns).
+        
+    npts: int
+        Number of points used in computing the integral. The default is 1000
+        
+    method: str
+        Either 'nearest' or 'interp'. 'nearest' finds the nearest point in the
+        DANTE signal to the given time. 'interp' returns an interpolated
+        signal value for the given time. Default is 'interp'.
     
     Returns
     -------
     signalInt: numpy.ndarray
-        Time integrated Dante signals for each channel.
+        Time integrated Dante signals for each channel (in V*s).
     
     Notes
     -----
@@ -403,12 +435,23 @@ def signalInt(channels, measurementFrame, tStart, tEnd):
     chLen = len(channels)
     signalInt = np.zeros(chLen)
     for idx, channel in enumerate(channels):
-        timeseries = measurementFrame['Time' + str(channel)]
-        chanseries = measurementFrame['Signal' + str(channel)]
-        timeIdx1, _ = find_nearest(array=timeseries, value=tStart)
-        timeIdx2, _ = find_nearest(array=timeseries, value=tEnd)
-        signalInt[idx] = integrate.simps(y=chanseries[timeIdx1:timeIdx2],
-                                         x=timeseries[timeIdx1:timeIdx2])
+        timeseries = timesFrame[channel]
+        chanseries = df[channel]
+        if method == 'nearest':
+            timeIdx1, _ = find_nearest(array=timeseries, value=tStart*1e-9)
+            timeIdx2, _ = find_nearest(array=timeseries, value=tEnd*1e-9)
+            # print(timeIdx1, timeIdx2)
+            signalInt[idx] = integrate.simps(y=chanseries[timeIdx1:timeIdx2],
+                                             x=timeseries[timeIdx1:timeIdx2])
+        elif method == 'interp':
+            interpTime = np.linspace(tStart*1e-9, tEnd*1e-9, npts)
+            signalInterp = np.interp(interpTime, timeseries, chanseries)
+            signalInt[idx] = integrate.simps(y=signalInterp,
+                                             x=interpTime)
+        else:
+            raise Exception(f"Method {method} not found!")
+                
+        
     return signalInt
 
 
@@ -443,6 +486,152 @@ def readDanteData(filePath):
     """
     # reading the entire dante file
     dataAndHeaderFrame = pd.read_csv(filePath, sep='\t', header=None)
+    # generating dante dataframe header names
+    headerNames1st = [str(num) for num in np.arange(18) + 1]
+    headerNames2nd = [str(num) + ' bkg' for num in np.arange(18) + 1]
+    headerName = headerNames1st + headerNames2nd
+    # replacing dataframe column header names for more intuitive access
+    dataAndHeaderFrame.columns = headerName
+    # splitting into header frame and measurement data frame
+    headerLen = 18
+    headerFrame = dataAndHeaderFrame[:][:headerLen]
+    dataFrame = dataAndHeaderFrame[:][headerLen:]
+    # replacing row names for header frame
+    indexNamesReplace = {0:'Signal Cable',
+                         1:'Attenuator 1',
+                         2:'Attenuator 2',
+                         3:'Attenuator 3',
+                         4:'Attenuator 4',
+                         5:'Jumper Cable',
+                         6:'XRD SN',
+                         7:'Mirror SN',
+                         8:'Filter 1 SN',
+                         9:'Filter 2 SN',
+                         10:'Filter 3 SN',
+                         11:'Fiducial T',
+                         12:'Scope type',
+                         13:'Full scale Hor time',
+                         14:'#Hor Pts',
+                         15:'Full Scale Vert mV',
+                         16:'HV bias for XRDs',
+                         17:'(unused field)'}
+    headerFrame.rename(index=indexNamesReplace, inplace=True)
+    return headerFrame, dataFrame
+
+def readDanteDataOld(filePath):
+    r"""
+    Reads Dante .dat file for old format files (no bkg) and returns header
+    info and channel signals as two separate pandas dataframes. Produces 
+    artificial background dataframe of just zeros.
+    
+    Parameters
+    ----------
+    filePath: str
+        Full path to the Dante .dat file.
+    
+    Returns
+    -------
+    headerFrame: pandas.core.frame.DataFrame
+        Header of Dante data file. This typically include information
+        about the various components used in each Dante channel, such
+        as oscilloscopes, XRDs, etc.
+    
+    dataFrame: pandas.core.frame.DataFrame
+        Dante data.
+        
+    Notes
+    -----
+    
+    See also
+    --------
+    
+    Examples
+    --------
+    """
+    # reading the entire dante file
+    dataAndHeaderFrame = pd.read_csv(filePath, sep='\t', header=None)
+    
+    # make background data frame with duplicate header
+    bkg = np.zeros_like(dataAndHeaderFrame)
+    bkgFrame = pd.DataFrame(bkg)
+    headerLen = 17 # old header does not include XRD voltages
+    headerFrame = dataAndHeaderFrame[:][:headerLen]
+    bkgFrame[:][:headerLen] = headerFrame
+    
+    master = pd.concat((dataAndHeaderFrame, bkgFrame), axis = 1)
+    # generating dante dataframe header names
+    headerNames1st = [str(num) for num in np.arange(18) + 1]
+    
+    # take out non-existant background traces
+    headerNames2nd = [str(num) + ' bkg' for num in np.arange(18) + 1]
+    headerName = headerNames1st + headerNames2nd
+    
+    # headerName = headerNames1st
+    # replacing dataframe column header names for more intuitive access
+    master.columns = headerName
+    # splitting into header frame and measurement data frame
+    
+    headerFrame = master[:][:headerLen]
+    dataFrame = master[:][headerLen:]
+    
+    # replacing row names for header frame
+    indexNamesReplace = {0:'Signal Cable',
+                         1:'Attenuator 1',
+                         2:'Attenuator 2',
+                         3:'Attenuator 3',
+                         4:'Attenuator 4',
+                         5:'Jumper Cable',
+                         6:'XRD SN',
+                         7:'Mirror SN',
+                         8:'Filter 1 SN',
+                         9:'Filter 2 SN',
+                         10:'Filter 3 SN',
+                         11:'Fiducial T',
+                         12:'Scope type',
+                         13:'Full scale Hor time',
+                         14:'#Hor Pts',
+                         15:'Full Scale Vert mV',
+                         16:'(unused field)'}
+    headerFrame.rename(index=indexNamesReplace, inplace=True)
+    return headerFrame, dataFrame
+
+def readDanteDatah5Legacy(filePath):
+    r"""
+    Reads Dante .h5 file for the legacy file and returns header info and
+    channel signals as two separate pandas dataframes.
+    
+    Parameters
+    ----------
+    filePath: str
+        Full path to the Dante .dat file.
+    
+    Returns
+    -------
+    headerFrame: pandas.core.frame.DataFrame
+        Header of Dante data file. This typically include information
+        about the various components used in each Dante channel, such
+        as oscilloscopes, XRDs, etc.
+    
+    dataFrame: pandas.core.frame.DataFrame
+        Dante data.
+        
+    Notes
+    -----
+    
+    See also
+    --------
+    
+    Examples
+    --------
+    """
+    # reading the entire dante file from h5 and taking legacy file only
+    data = h5py.File(filePath)
+    legacy = data["Legacy"][:]
+    dataAndHeaderFrame = pd.DataFrame(legacy)
+    
+    # old method where the dat file is read directly by pandas
+    # dataAndHeaderFrame = pd.read_csv(filePath, sep='\t', header=None)
+    
     # generating dante dataframe header names
     headerNames1st = [str(num) for num in np.arange(18) + 1]
     headerNames2nd = [str(num) + ' bkg' for num in np.arange(18) + 1]
