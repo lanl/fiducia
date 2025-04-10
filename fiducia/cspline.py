@@ -631,7 +631,7 @@ def detectorArr(channels, knots, responseFrame, boundary="y0", npts=1000):
         boundary = "y0"
     else:
         raise Exception(f"No method found for boundary {boundary}.")
-    
+        
     # number of DANTE channels where we have useful measurements
     chLen = len(channels)
     # initialize normalized energies array

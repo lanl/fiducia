@@ -32,3 +32,5 @@ __pycache__/sgfilter.cpython-311.pyc
 .spyproject/config/backups/vcs.ini.bak
 .spyproject/config/backups/encoding.ini.bak
 .spyproject/config/backups/codestyle.ini.bak
+filters.py
+fiducia/__pycache__/h5loader.cpython-311.pyc
