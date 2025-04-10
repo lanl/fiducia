@@ -601,7 +601,7 @@ def detectorArr(channels, knots, responseFrame, boundary="y0", npts=1000):
         Options are 'y0' or 'yn+1'. Default 'y0'.
         
     npts: int
-        Number of points used in computing the integral
+        Number of points used in computing the integral. The default is 1000.
         
     Returns
     -------
@@ -629,6 +629,8 @@ def detectorArr(channels, knots, responseFrame, boundary="y0", npts=1000):
     if boundary == "yn+1":
         print("yn+1 boundary is deprecated. Using y0 instead.")
         boundary = "y0"
+    elif boundary == "y0":
+        pass
     else:
         raise Exception(f"No method found for boundary {boundary}.")
         
