@@ -150,8 +150,8 @@ def loadResponses(channels, fileName, solid=True):
     
     Parameters
     ----------
-    channels: list, numpy.ndarray
-        List or array of relevant channels
+    channels: list
+        List of relevant channels
         
     fileName: str
         Full path and filename of .csv file containing DANTE respones
@@ -180,6 +180,8 @@ def loadResponses(channels, fileName, solid=True):
     chamberRad = fiducia.misc.chamberRadius
     # loading all the response functions
     dataFrame = pd.read_csv(fileName)
+    # convert NaN entries to 0 if present
+    dataFrame = dataFrame.fillna(0)
     #clean headers
     cleanedFrame = cleanupHeader(dataFrame)
     # filtering for channels we care about
