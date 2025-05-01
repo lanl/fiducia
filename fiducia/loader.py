@@ -150,8 +150,8 @@ def loadResponses(channels, fileName, solid=True):
     
     Parameters
     ----------
-    channels: list
-        List of relevant channels
+    channels: list, numpy.ndarray
+        List of relevant channels.
         
     fileName: str
         Full path and filename of .csv file containing DANTE respones
@@ -175,6 +175,10 @@ def loadResponses(channels, fileName, solid=True):
     Examples
     --------
     """
+    
+    # check for numpy array and convert to python list
+    if isinstance(channels, np.ndarray):
+        channels = channels.tolist()
 
     solidAngles = fiducia.misc.solidAngles
     chamberRad = fiducia.misc.chamberRadius

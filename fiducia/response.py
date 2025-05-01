@@ -62,6 +62,10 @@ def knotFind(channels,
     Examples
     --------
     """
+    # check for numpy array and convert to python list
+    if isinstance(channels, np.ndarray):
+        channels = channels.tolist()
+    
     knots = np.zeros(len(channels))
     for idx, channel in enumerate(channels):
         # if forceKnot isn't an empty list, then we go about forcing the user

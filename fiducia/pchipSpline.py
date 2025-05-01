@@ -255,6 +255,31 @@ def knotSolvePCHIP(signals,
         
     return knotsY
 
+def checkKnots(signals,
+               responseFrame, 
+               channels, 
+               knots,
+               knotsY):
+    
+    # initialize solution array
+    fideltiy = np.zeros_like(channels, dtype="float64")
+    
+    # reconstruct the spline solution using PCHIP with identical interpolation
+    interpLen = responseFrame.shape[0]*10
+    xInterp = np.linspace(min(knots), max(knots), num = interpLen)
+    # pchipSpline = pchip(knots, knotsY, xInterp)
+    
+    for idx, chan in enumerate(channels):
+        # print(chan, interpLen)
+        pchipSol = pchip(knots, knotsY, xInterp)
+        pchipResp = pchip(responseFrame["Energy(eV)"],
+                          responseFrame[chan],
+                          xInterp)
+        convolve = pchipResp*pchipSol
+        integCon = np.trapz(convolve, xInterp)
+        fideltiy[idx] = integCon
+    return fideltiy
+
 @jit(nopython = True)
 def pchip_1d(xData, yData, xInterp, order = 3):
     """
