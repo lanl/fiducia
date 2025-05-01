@@ -34,3 +34,5 @@ __pycache__/sgfilter.cpython-311.pyc
 .spyproject/config/backups/codestyle.ini.bak
 filters.py
 fiducia/__pycache__/h5loader.cpython-311.pyc
+*.pyc
+fiducia/__pycache__/pchipSpline.cpython-311.pyc
