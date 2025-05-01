@@ -13,6 +13,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import re
+from itertools import chain
 
 def h5_import(filepath):
     """
@@ -422,6 +423,23 @@ def apply_attenuation(df, headerFrame):
     return df
 
 def times_frame(headerFrame):
+    """
+    Generates the time base for each channel based on scope parameters passed
+    to the header frame.
+
+    Parameters
+    ----------
+    headerFrame : DataFrame
+        Pandas array containing scope information and attenuation values.
+
+    Returns
+    -------
+    timesFrame : DataFrame
+        Pandas array containing the time axis coordinates for each channel of
+        Dante. This frame together with the DataFrame returned by voltage_scale
+        gives the diode votlages vs time.
+
+    """
     # calculate time offset using time increment and number of offset points
     recLen = int(headerFrame.loc["Record length"][0]) # length of time record
     chans = headerFrame.shape[1] # number of channels
@@ -477,6 +495,15 @@ def h5_rawProcess(filepath):
     dfAtten = apply_attenuation(dfScale, headerFrame)
 
     return  timesFrame, dfAtten, headerFrame
+
+def reindex_integers(frame):
+
+    strCols = frame.columns
+    intCols = strCols.map(lambda x: [int(num) for num in re.findall(r'\d+', x)])
+    flattened = pd.Index(list(chain.from_iterable(intCols)))
+    frame.columns = flattened
+    
+    return frame
 
 #############DEVELOPMENT GRAVEYARD#################################
 # def attrs_frame(h5File): #DEPRECATED

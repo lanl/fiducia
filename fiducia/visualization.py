@@ -63,6 +63,9 @@ def plotResponse(channels,
     --------
         
     """
+    # check for numpy array and convert to python list
+    if isinstance(channels, np.ndarray):
+        channels = channels.tolist()
     # getting sensible figure bounds
     yMax = responseFrame[channels].max().max()
     yMin = yMax / 1e11

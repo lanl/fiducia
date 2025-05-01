@@ -143,7 +143,7 @@ def cleanupHeader(dataFrame):
 
 
 def loadResponses(channels, fileName, solid=True):
-    r"""
+    """
     Load DANTE measurement data from files given the channels and path to the
     directory containing the response function files. Returns a dataframe
     with the data.
@@ -151,7 +151,7 @@ def loadResponses(channels, fileName, solid=True):
     Parameters
     ----------
     channels: list, numpy.ndarray
-        List or array of relevant channels
+        List of relevant channels.
         
     fileName: str
         Full path and filename of .csv file containing DANTE respones
@@ -175,11 +175,17 @@ def loadResponses(channels, fileName, solid=True):
     Examples
     --------
     """
+    
+    # check for numpy array and convert to python list
+    if isinstance(channels, np.ndarray):
+        channels = channels.tolist()
 
     solidAngles = fiducia.misc.solidAngles
     chamberRad = fiducia.misc.chamberRadius
     # loading all the response functions
     dataFrame = pd.read_csv(fileName)
+    # convert NaN entries to 0 if present
+    dataFrame = dataFrame.fillna(0)
     #clean headers
     cleanedFrame = cleanupHeader(dataFrame)
     # filtering for channels we care about
