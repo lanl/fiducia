@@ -32,20 +32,21 @@ def h5_import(filepath):
         The H5 file heirarchy and datasets.
 
     """
-    dataImp= h5py.File(filepath)
-    try:
-        # get detector positions
-        keys = np.array(list(dataImp.keys()), dtype = 'str') 
-        attSearch = dataImp[keys[0]][keys[0] + " Baseline"]
-        # get all attributes of first position
-        attrs = np.array(list(attSearch.attrs.keys()))
-    except:
-        print("Data keys and attributes location may have changed! Check file"+
-              "formatting")
+    with h5py.File(filepath) as f:
+        dataImp = f
+        try:
+            # get detector positions
+            keys = np.array(list(dataImp.keys()), dtype = 'str') 
+            attSearch = dataImp[keys[0]][keys[0] + " Baseline"]
+            # get all attributes of first position
+            attrs = np.array(list(attSearch.attrs.keys()))
+        except:
+            print("Data keys and attributes location may have changed! Check file"+
+                  "formatting")
     
     return dataImp
     
-def make_frames(h5File):
+def make_frames(filepath):
     """
     Function that returns the raw attributes and scope traces of each detector
     position. This makes it easier to call and access the raw H5 data in
@@ -66,52 +67,54 @@ def make_frames(h5File):
         and preshot backgrounds.
 
     """
-    # uses the same commands as the import function
-    # import will throw an exception if these don't work
-    keys = np.array(list(h5File.keys()), dtype = 'str') 
-    attSearch = h5File[keys[0]][keys[0] + " Baseline"]
-    # get all attributes of first position
-    attrs = np.array(list(attSearch.attrs.keys()))
-    header = np.full((len(attrs), len(keys)), "x" * 1000)
-    # set data array dims
-    recLen = attSearch.shape[0]
-    shotData = np.full((recLen, len(keys)), 1.1)
-    baseData = np.full((recLen, len(keys)), 1.1)
-    chanOrder = []
-    indexer = []
-    shotCols = np.full(2*len(keys), "x"*1000)
-    baseCols = np.full(2*len(keys), "x"*1000)
-    for idx1, pos in enumerate(h5File.keys()):
-        # get attributes for position (taken from baseline)
-        posAttrs1 = h5File[pos][pos + " Baseline"].attrs
-        # get channel number for labeling/sorting
-        chanNum = int(posAttrs1["NIF"])
-        chanOrder.append(chanNum)
-        indexer.append(f"Channel {chanNum}")
-        # get data values
-        base = h5File[pos][pos + " Baseline"][:]
-        shot = h5File[pos][pos + " Shot"][:]
-        shotData[:, idx1] = shot
-        baseData[:, idx1] = base
-        shotCols[idx1] = f"Channel {chanNum} Shot"
-        baseCols[idx1] = f"Channel {chanNum} Baseline"
-        for idx2, att in enumerate(posAttrs1.keys()):
-            header[idx2, idx1] = posAttrs1.get(att)
-    # sort baseline and shot data by channel
-    shotDataSort = shotData[:, np.argsort(chanOrder)]
-    baseDataSort = baseData[:, np.argsort(chanOrder)]
-    data = np.concatenate((shotDataSort, baseDataSort), axis = 1)
-    # sort indices similarly
-    shotCols = shotCols[np.argsort(chanOrder)]
-    baseCols = baseCols[np.argsort(chanOrder)]
-    cols = np.concatenate((shotCols, baseCols))
-    dataFrame = pd.DataFrame(data, columns = cols)
-    # construct attrs frame and sort by channels
-    attrsFrame = pd.DataFrame(np.array(header), columns = indexer, index = attrs)
-    # sort attributes and data by channel number
-    attrsFrame = attrsFrame.iloc[:, np.argsort(chanOrder)]
-    
-    return attrsFrame, dataFrame   
+    with h5py.File(filepath, 'r') as f:
+        # uses the same commands as the import function
+        h5File = f
+        # import will throw an exception if these don't work
+        keys = np.array(list(h5File.keys()), dtype = 'str') 
+        attSearch = h5File[keys[0]][keys[0] + " Baseline"]
+        # get all attributes of first position
+        attrs = np.array(list(attSearch.attrs.keys()))
+        header = np.full((len(attrs), len(keys)), "x" * 1000)
+        # set data array dims
+        recLen = attSearch.shape[0]
+        shotData = np.full((recLen, len(keys)), 1.1)
+        baseData = np.full((recLen, len(keys)), 1.1)
+        chanOrder = []
+        indexer = []
+        shotCols = np.full(2*len(keys), "x"*1000)
+        baseCols = np.full(2*len(keys), "x"*1000)
+        for idx1, pos in enumerate(h5File.keys()):
+            # get attributes for position (taken from baseline)
+            posAttrs1 = h5File[pos][pos + " Baseline"].attrs
+            # get channel number for labeling/sorting
+            chanNum = int(posAttrs1["NIF"])
+            chanOrder.append(chanNum)
+            indexer.append(f"Channel {chanNum}")
+            # get data values
+            base = h5File[pos][pos + " Baseline"][:]
+            shot = h5File[pos][pos + " Shot"][:]
+            shotData[:, idx1] = shot
+            baseData[:, idx1] = base
+            shotCols[idx1] = f"Channel {chanNum} Shot"
+            baseCols[idx1] = f"Channel {chanNum} Baseline"
+            for idx2, att in enumerate(posAttrs1.keys()):
+                header[idx2, idx1] = posAttrs1.get(att)
+        # sort baseline and shot data by channel
+        shotDataSort = shotData[:, np.argsort(chanOrder)]
+        baseDataSort = baseData[:, np.argsort(chanOrder)]
+        data = np.concatenate((shotDataSort, baseDataSort), axis = 1)
+        # sort indices similarly
+        shotCols = shotCols[np.argsort(chanOrder)]
+        baseCols = baseCols[np.argsort(chanOrder)]
+        cols = np.concatenate((shotCols, baseCols))
+        dataFrame = pd.DataFrame(data, columns = cols)
+        # construct attrs frame and sort by channels
+        attrsFrame = pd.DataFrame(np.array(header), columns = indexer, index = attrs)
+        # sort attributes and data by channel number
+        attrsFrame = attrsFrame.iloc[:, np.argsort(chanOrder)]
+        
+        return attrsFrame, dataFrame   
 
 def preamble_regex(position, verbose = False):
     """
@@ -429,12 +432,12 @@ def times_frame(headerFrame):
 
     Parameters
     ----------
-    headerFrame : DataFrame
+    headerFrame : pandas.core.frame.DataFrame
         Pandas array containing scope information and attenuation values.
 
     Returns
     -------
-    timesFrame : DataFrame
+    timesFrame : pandas.core.frame.DataFrame
         Pandas array containing the time axis coordinates for each channel of
         Dante. This frame together with the DataFrame returned by voltage_scale
         gives the diode votlages vs time.
@@ -467,20 +470,20 @@ def h5_rawProcess(filepath):
 
     Returns
     -------
-    timesFrame : DataFrame
+    timesFrame : pandas.core.frame.DataFrame
         The time coordinate for each channel of Dante.
-    dfAtten : DataFrame
+    dfAtten : pandas.core.frame.DataFrame
         The diode voltages of each channel of Dante.
-    headerFrame : DataFrame
+    headerFrame : pandas.core.frame.DataFrame
         An array containing important scope parameters for reducing the raw 
         digitized data.
 
     """
     # import file
-    h5File = h5_import(filepath)
+    # h5File = h5_import(filepath)
     
-    # parse input data
-    attrsFrame, df = make_frames(h5File)
+    # import and parse input data
+    attrsFrame, df = make_frames(filepath)
     
     # make header file of scope specs
     headerFrame = make_header(attrsFrame)
@@ -497,6 +500,22 @@ def h5_rawProcess(filepath):
     return  timesFrame, dfAtten, headerFrame
 
 def reindex_integers(frame):
+    """
+    Reindexes Pandas DataFrames with integer values in columns.This provides
+    compatibility with other FIDUCIA functions. Use when there are key error
+    instances in downstream functions (cspline and pchipSpline).
+
+    Parameters
+    ----------
+    frame : pandas.core.frame.DataFrame
+        Input DataFrame to be converted to integer column labels.
+
+    Returns
+    -------
+    frame : pandas.core.frame.DataFrame
+        Output DataFrame now with integer values column labels.
+
+    """
 
     strCols = frame.columns
     intCols = strCols.map(lambda x: [int(num) for num in re.findall(r'\d+', x)])
