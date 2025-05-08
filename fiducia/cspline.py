@@ -20,7 +20,6 @@ import fiducia.pltDefaults
 import fiducia.loader
 from fiducia.stats import dotVariance
 from fiducia.loader import signalsAtTime
-from numba import jit
 
 # listing all functions declared in this file so that sphinx-automodapi
 # correctly documents them and doesn't document imported functions.
