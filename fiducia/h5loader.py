@@ -32,8 +32,7 @@ def h5_import(filepath):
         The H5 file heirarchy and datasets.
 
     """
-    with h5py.File(filepath) as f:
-        dataImp = f
+    with h5py.File(filepath) as dataImp:
         try:
             # get detector positions
             keys = np.array(list(dataImp.keys()), dtype = 'str') 
@@ -67,9 +66,7 @@ def make_frames(filepath):
         and preshot backgrounds.
 
     """
-    with h5py.File(filepath, 'r') as f:
-        # uses the same commands as the import function
-        h5File = f
+    with h5py.File(filepath, 'r') as h5File:
         # import will throw an exception if these don't work
         keys = np.array(list(h5File.keys()), dtype = 'str') 
         attSearch = h5File[keys[0]][keys[0] + " Baseline"]
