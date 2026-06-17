@@ -1203,18 +1203,18 @@ def getPeaks(timesFrame,
         if plot:
             # plotting
             plt.plot(times, signal)
-            plt.plot(times[peaks], signal[peaks], "x")
-            plt.vlines(x=times[peaks],
-                       ymin=signal[peaks] - properties["prominences"],
-                       ymax = signal[peaks],
+            plt.plot(times.iloc[peaks], signal.iloc[peaks], "x")
+            plt.vlines(x=times.iloc[peaks],
+                       ymin=signal.iloc[peaks] - properties["prominences"],
+                       ymax = signal.iloc[peaks],
                        color = "C1")
             plt.hlines(y=properties["width_heights"],
-                       xmin=times[properties["left_ips"].astype(int)],
-                       xmax=times[properties["right_ips"].astype(int)],
+                       xmin=times.iloc[properties["left_ips"].astype(int)],
+                       xmax=times.iloc[properties["right_ips"].astype(int)],
                        color = "C1")
             plt.hlines(y=avgMult * np.mean(signal),
-                       xmin=times[0],
-                       xmax=times[len(signal) - 1],
+                       xmin=times.iloc[0],
+                       xmax=times.iloc[len(signal) - 1],
                        color = "C2",
                        linestyles='--')
             plt.title(f"Ch {ch}")
