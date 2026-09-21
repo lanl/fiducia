@@ -525,7 +525,7 @@ def neldermead(func, x0, args=(),
     # _check_unknown_options(unknown_options)
     maxfun = maxfev
 
-    x0 = np.asarray(x0, dtype=float).flatten() #make x0 a 1d array of floats
+    x0 = np.asarray(x0).flatten() #make x0 a 1d array of floats
     
     # unjitable class Bounds
     # bounds = standardize_bounds(bounds)
