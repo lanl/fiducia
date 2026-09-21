@@ -82,6 +82,7 @@ def make_frames(filepath):
         shotCols = np.full(2*len(keys), "x"*1000)
         baseCols = np.full(2*len(keys), "x"*1000)
         for idx1, pos in enumerate(h5File.keys()):
+            print(pos)
             # get attributes for position (taken from baseline)
             posAttrs1 = h5File[pos][pos + " Baseline"].attrs
             # get channel number for labeling/sorting
@@ -91,6 +92,14 @@ def make_frames(filepath):
             # get data values
             base = h5File[pos][pos + " Baseline"][:]
             shot = h5File[pos][pos + " Shot"][:]
+            if base.shape[0] < 1:
+                print(f"Warning: Channel {chanNum} has no background!")
+                base = np.zeros(recLen)
+                # pass
+            if shot.shape[0] < 1:
+                print(f"Warning: Channel {chanNum} has no shot data!")
+                shot = np.zeros(recLen)
+                # pass
             shotData[:, idx1] = shot
             baseData[:, idx1] = base
             shotCols[idx1] = f"Channel {chanNum} Shot"
@@ -313,7 +322,11 @@ def make_header(attrsFrame):
         position = attrsFrame[pos]
         header[2:, idx]  = preamble_regex(position)
         _, header[0, idx] = total_attenuation(position)
-        header[1, idx] = position["PointsReceived"]
+        if position["PointsReceived"] == '':
+            print(f"Warning: Channel {pos} recorded no points!")
+            header[1, idx] = 0
+        else:
+            header[1, idx] = int(position["PointsReceived"])
     # make header dataframe
     cols = attrsFrame.columns
     # create row names for header frame

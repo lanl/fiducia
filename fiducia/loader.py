@@ -142,8 +142,8 @@ def cleanupHeader(dataFrame):
     return cleanedDataFrame
 
 
-def loadResponses(channels, fileName, solid=True):
-    """
+def loadResponses(channels, fileName, convert=True, solid=True, area=False):
+    r"""
     Load DANTE measurement data from files given the channels and path to the
     directory containing the response function files. Returns a dataframe
     with the data.
@@ -151,7 +151,7 @@ def loadResponses(channels, fileName, solid=True):
     Parameters
     ----------
     channels: list, numpy.ndarray
-        List of relevant channels.
+        List or array of relevant channels
         
     fileName: str
         Full path and filename of .csv file containing DANTE respones
@@ -175,23 +175,24 @@ def loadResponses(channels, fileName, solid=True):
     Examples
     --------
     """
-    
-    # check for numpy array and convert to python list
-    if isinstance(channels, np.ndarray):
-        channels = channels.tolist()
 
     solidAngles = fiducia.misc.solidAngles
     chamberRad = fiducia.misc.chamberRadius
+    standoff = fiducia.misc.standoff
     # loading all the response functions
     dataFrame = pd.read_csv(fileName)
-    # convert NaN entries to 0 if present
-    dataFrame = dataFrame.fillna(0)
     #clean headers
     cleanedFrame = cleanupHeader(dataFrame)
     # filtering for channels we care about
     # for this particular shot
-    colFilter = ['Energy(eV)'] + channels
+    colFilter = pd.Index(['Energy(eV)']).append(pd.Index(channels))
     responseFrame = cleanedFrame[colFilter].copy()
+    # set default units of response functions to V/W (convert from V/GW)
+    responseFrame.units = "(V/GW)"
+    # set default metadata flags
+    responseFrame.convert = False
+    responseFrame.solid = False
+    responseFrame.area = False
     # convert energy column from strings to floats (if necessary)
     if type(responseFrame['Energy(eV)'][0]) == str:
         energyFloats = responseFrame['Energy(eV)'].str.replace(',', '')
@@ -199,14 +200,36 @@ def loadResponses(channels, fileName, solid=True):
     else:
         energyFloats = responseFrame['Energy(eV)'].astype(float)
         responseFrame.loc[:,'Energy(eV)'] = energyFloats
-
+        
+    if convert:
+        for chan in channels:
+            # perform conversion to V/W
+            responseFrame.loc[:, chan] *= 1e-9
+            responseFrame.convert = True
+            responseFrame.units = "(V/W)"
+            
     if solid:
         for chan in channels:
-            #multiply each element by the corresponding channel solid angle
-            #convert V/GW to V/W for benchmarking against Mathematica Fiducia
-            responseFrame.loc[:, chan] *= solidAngles[chan-1]**2*1e-9*chamberRad**2
+            # multiply each element by the corresponding channel solid angle
+            # this also converts from GW to W (factor of 1e-9)
+            responseFrame.loc[:, chan] *= solidAngles[chan-1]
             #save metadata that we already include solid angle
             responseFrame.solid = True
+            responseFrame.units = "(V.sr/W)"
+        
+    if area:
+        for chan in channels:
+            # multiply each element by corresponding channel detector area
+            # this also converts from GW to W (factor of 1e-9)
+            responseFrame.loc[:, chan] *= solidAngles[chan-1]*chamberRad**2
+            responseFrame.area = True
+            responseFrame.units = "(V.cm^2/W)"
+            
+    if area and solid:
+        responseFrame.units = "(V.cm^2.sr/W)"
+
+    # replace empty or NaN entries with 0
+    responseFrame.fillna(0, inplace=True)
 
     return responseFrame
 

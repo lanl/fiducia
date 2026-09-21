@@ -57,7 +57,7 @@ def gen_fact(a, b, method = 'vector'):
     #vectorized factorial based on scipy functions
     if method == 'vector':
         spFact = sp.special.factorial
-        fact = sp.vectorize(spFact, otypes='O')
+        fact = np.vectorize(spFact, otypes='O')
         diff = a - b
         diffBool = (a-b>=0)*1
         num = fact(a, exact=True)
@@ -347,8 +347,8 @@ def n_opt(signal, der = 0, sigma = "auto", method = 'vector', print_n = False):
         d2y = np.diff(sg_filter_gram(dy, n1, k, der, method = method))
         d3y = np.diff(sg_filter_gram(d2y, n1, k, der, method = method))
         c1 = np.mean(d3y**2)
-        num = 2*(k + 2)*(np.math.factorial(2*k + 3))**2
-        denom = (np.math.factorial(k + 1))**2
+        num = 2*(k + 2)*(math.factorial(2*k + 3))**2
+        denom = (math.factorial(k + 1))**2
         root = (2*k + 5)
         nOpt = ((num/denom)*(sigma/c1))**(1/root)
     return int(n1)

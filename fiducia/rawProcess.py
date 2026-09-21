@@ -736,7 +736,7 @@ def polyBkg(time,
     upperLength: int
         Length over which to take the polynomial background fit on the
         upper end (later in time) segment of the signal, with respect
-        to upperEdge. Defualt is None, which then just picks the second
+        to upperEdge. Default is None, which then just picks the second
         to last point in the signal.
         
     plot: bool
@@ -871,7 +871,7 @@ def signalEdges(timesFrame,
         signal = df[ch]
         # finding peaks which are above the mean of the signal
         peaks, properties = find_peaks(signal,
-                                       height=avgMult * np.mean(signal),
+                                       height=avgMult,
                                        prominence=prominence,
                                        width=width)
         # if no peaks are detected, just take the max of the input signal
@@ -881,9 +881,9 @@ def signalEdges(timesFrame,
             prom2, _, _ = peak_prominences(signal, sigMax)
             prom2Val = prom2[0]
             peaks, properties = find_peaks(signal,
-                                           height=avgMult * np.mean(signal),
-                                           prominence=prom2Val,
-                                           width=width)
+                                            height=avgMult,
+                                            prominence=prom2Val,
+                                            width=width)
         # determining lower and upper bounds of signal region by taking first
         # and last peaks and shifting by distance of peak width
         # width1 = properties["widths"][0]
@@ -1043,7 +1043,7 @@ def highestPeak(signal, peakIdxs):
     --------
     """
     # search for first tallest peak
-    peakSignals = signal[peakIdxs]
+    peakSignals = signal.iloc[peakIdxs]
     peakHighestIdx = pd.Series.idxmax(peakSignals)
     # finding index of tallest peak in peakIdxs array (since this is a
     # numpy array and is indexed differently from peakSignals).
@@ -1184,8 +1184,9 @@ def getPeaks(timesFrame,
         # if no peaks are detected, just take the max of the input signal
         # find the prominence of the max and re-run find_peaks
         if len(peaks)==0:
-            sigMax = np.array([signal.idxmax()])
-            prom2, _, _ = peak_prominences(signal, sigMax)
+            sigNP = signal.to_numpy()
+            sigMax = [signal.argmax()]
+            prom2, _, _ = peak_prominences(sigNP, sigMax)
             prom2Val = prom2[0]
             peaks, properties = find_peaks(signal,
                                            height=avgMult * np.mean(signal),
@@ -1202,18 +1203,18 @@ def getPeaks(timesFrame,
         if plot:
             # plotting
             plt.plot(times, signal)
-            plt.plot(times[peaks], signal[peaks], "x")
-            plt.vlines(x=times[peaks],
-                       ymin=signal[peaks] - properties["prominences"],
-                       ymax = signal[peaks],
+            plt.plot(times.iloc[peaks], signal.iloc[peaks], "x")
+            plt.vlines(x=times.iloc[peaks],
+                       ymin=signal.iloc[peaks] - properties["prominences"],
+                       ymax = signal.iloc[peaks],
                        color = "C1")
             plt.hlines(y=properties["width_heights"],
-                       xmin=times[properties["left_ips"].astype(int)],
-                       xmax=times[properties["right_ips"].astype(int)],
+                       xmin=times.iloc[properties["left_ips"].astype(int)],
+                       xmax=times.iloc[properties["right_ips"].astype(int)],
                        color = "C1")
             plt.hlines(y=avgMult * np.mean(signal),
-                       xmin=times[0],
-                       xmax=times[len(signal) - 1],
+                       xmin=times.iloc[0],
+                       xmax=times.iloc[len(signal) - 1],
                        color = "C2",
                        linestyles='--')
             plt.title(f"Ch {ch}")

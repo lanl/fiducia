@@ -27,7 +27,6 @@ __all__ = ["plotResponse",
 def plotResponse(channels,
                  responseFrame,
                  knots,
-                 solid=True,
                  title='Dante Response Functions'):
     r"""
     Plots response function curves with knot locations identified as
@@ -42,10 +41,6 @@ def plotResponse(channels,
         
     knots: list, numpy.ndarray
         List or array of knot point photon energy value. See knotFind().
-        
-    solid: Bool
-        Includes solid angle in response function value if true.
-        Necessary for plotting responses with correct units.
         
     Parameters
     ----------
@@ -71,6 +66,8 @@ def plotResponse(channels,
     yMin = yMax / 1e11
     xMin = 1e1
     xMax = 1e5
+    # extract units from responseFrame
+    un = responseFrame.units
     # plotting figure
     fig = plt.figure()
     for idx, channel in enumerate(channels):
@@ -85,10 +82,7 @@ def plotResponse(channels,
                labelspacing=0.001,
                borderaxespad=0.1)
     plt.xlabel('Energy (eV)')
-    if solid:
-        plt.ylabel('Response (V/GW/sr)')
-    else:
-        plt.ylabel('Response (V/GW)')        
+    plt.ylabel('Response ' + un)
     plt.title(title)
     plt.show()
     return

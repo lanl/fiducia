@@ -11,7 +11,7 @@ from scipy import integrate
 from scipy.interpolate import pchip_interpolate as pchip
 from scipy.optimize import minimize
 import matplotlib.pyplot as plt
-import xarray as xr
+# import xarray as xr
 import pandas as pd
 # custom modules
 import fiducia.pltDefaults
@@ -152,7 +152,7 @@ def minFunc(yKnotVals,
                           responseFrame[chan],
                           xInterp)
         convolve = pchipResp*pchipSol
-        integCon = np.trapz(convolve, xInterp)
+        integCon = np.trapezoid(convolve, xInterp)
         solution[idx] = integCon
     residual = np.sum((solution-voltages)**2)**(1/2)
     
@@ -217,7 +217,7 @@ def knotSolvePCHIP(signals,
         Linespline = initial
     
     # initial point guess based upon initial linear spline point
-    y0 = Linespline[0]*1e-1
+    y0 = Linespline[0]*1e-7
 
     # list of bounds. Accept only physical soltuions (knotsY>0)
     bounds = [(0, np.inf) for _ in range(len(channels))]
@@ -525,7 +525,7 @@ def neldermead(func, x0, args=(),
     # _check_unknown_options(unknown_options)
     maxfun = maxfev
 
-    x0 = np.asfarray(x0).flatten() #make sure x0 is 1d array of floats
+    x0 = np.asarray(x0).flatten() #make x0 a 1d array of floats
     
     # unjitable class Bounds
     # bounds = standardize_bounds(bounds)
