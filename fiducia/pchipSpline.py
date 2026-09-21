@@ -11,7 +11,7 @@ from scipy import integrate
 from scipy.interpolate import pchip_interpolate as pchip
 from scipy.optimize import minimize
 import matplotlib.pyplot as plt
-import xarray as xr
+# import xarray as xr
 import pandas as pd
 # custom modules
 import fiducia.pltDefaults
@@ -525,7 +525,7 @@ def neldermead(func, x0, args=(),
     # _check_unknown_options(unknown_options)
     maxfun = maxfev
 
-    x0 = np.asfarray(x0).flatten() #make sure x0 is 1d array of floats
+    x0 = np.asarray(x0, dtype=float).flatten() #make x0 a 1d array of floats
     
     # unjitable class Bounds
     # bounds = standardize_bounds(bounds)
